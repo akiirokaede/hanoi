@@ -374,7 +374,7 @@ class HanoiRoguelike {
     // 启用传送模式（供道具使用）
     enableTeleport() {
         this.teleportMode = true;
-        document.getElementById('message').textContent = '传送模式已激活！下次移动可无视规则。';
+        document.getElementById('message').textContent = '传送模式已激活！请先选择要移动的圆盘所在的塔，然后选择目标塔。';
         
         // 等待玩家选择塔
         this.waitForTeleportSelection();
@@ -384,7 +384,8 @@ class HanoiRoguelike {
     waitForTeleportSelection() {
         let fromTower = null;
         
-        const handleTowerClick = (event) => {
+        // 创建事件处理函数
+        const towerClickHandler = (event) => {
             const towerElement = event.target.closest('.tower');
             if (!towerElement) return;
             
@@ -392,25 +393,48 @@ class HanoiRoguelike {
             const tower = this.towerGame.towers[towerId - 1];
             
             if (!fromTower) {
-                // 使用传送石
+                // 第一次点击，选择源塔
+                fromTower = tower;
+                
+                // 高亮显示选中的塔
+                fromTower.element.classList.add('selected-tower');
+                
+                // 更新提示消息
+                document.getElementById('message').textContent = '现在请选择目标塔...';
+                
+                playSound('select');
+            } else {
+                // 第二次点击，选择目标塔
+                const toTower = tower;
+                
+                // 移除高亮显示
+                fromTower.element.classList.remove('selected-tower');
+                
+                // 使用传送石 - 调用TowerGame中的方法
                 this.towerGame.useTeleportItem(fromTower, toTower);
                 
                 // 移除事件监听器
                 const towers = document.querySelectorAll('.tower');
-                towers.forEach(tower => {
-                    tower.removeEventListener('click', handleTowerClick);
+                towers.forEach(t => {
+                    t.removeEventListener('click', towerClickHandler);
                 });
                 
+                // 重置状态
                 this.teleportMode = false;
+                
+                // 更新提示消息
                 document.getElementById('message').textContent = '传送完成！';
                 setTimeout(() => document.getElementById('message').textContent = '', 2000);
+                
+                // 播放传送音效
+                playSound('teleport');
             }
         };
         
-        // 添加一次性点击事件到所有塔
+        // 添加点击事件到所有塔
         const towers = document.querySelectorAll('.tower');
         towers.forEach(tower => {
-            tower.addEventListener('click', handleTowerClick);
+            tower.addEventListener('click', towerClickHandler);
         });
     }
     

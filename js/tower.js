@@ -387,12 +387,24 @@ class TowerGame {
                 const position = toTower.discs.length;
                 toTower.discs.push(movedDisc);
                 
-                // 设置最终位置
-                const DISC_HEIGHT = 30;
-                const DISC_MARGIN = 2;
-                const bottomOffset = 30;
-                const finalBottom = bottomOffset + (position * (DISC_HEIGHT + DISC_MARGIN));
+                // 使用和圆盘类相同的位置计算逻辑
+                const DISC_MARGIN = 2;  // 圆盘之间的间距
+                const bottomOffset = 30; // 距离底座顶部的固定偏移量
                 
+                // 计算当前圆盘下方所有圆盘的总高度
+                let totalStackHeight = 0;
+                for (let i = 0; i < position; i++) {
+                    if (toTower.discs[i] && toTower.discs[i].height) {
+                        totalStackHeight += toTower.discs[i].height + DISC_MARGIN;
+                    } else {
+                        // 后备方案，使用当前圆盘高度作为估计
+                        totalStackHeight += movedDisc.height + DISC_MARGIN;
+                    }
+                }
+                
+                const finalBottom = bottomOffset + totalStackHeight;
+                
+                // 设置最终位置
                 movedDisc.element.style.bottom = `${finalBottom}px`;
                 
                 playSound('teleport');
