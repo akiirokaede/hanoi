@@ -1,0 +1,90 @@
+/* 排行榜样式 */
+.leaderboard-container {
+    width: 90%;
+    max-width: 800px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 0 5px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+#leaderboard {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--light-color);
+}
+
+#leaderboard th {
+    background-color: var(--dark-color);
+    padding: 15px 10px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+#leaderboard td {
+    padding: 12px 10px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#leaderboard tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+#leaderboard tr:hover {
+    background-color: rgba(52, 152, 219, 0.2);
+}
+
+#leaderboard tr.gold {
+    background-color: rgba(212, 175, 55, 0.3);
+}
+
+#leaderboard tr.silver {
+    background-color: rgba(192, 192, 192, 0.3);
+}
+
+#leaderboard tr.bronze {
+    background-color: rgba(205, 127, 50, 0.3);
+}
+
+.rank-medal {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.rank-1 {
+    background-color: gold;
+    color: black;
+}
+
+.rank-2 {
+    background-color: silver;
+    color: black;
+}
+
+.rank-3 {
+    background-color: #cd7f32;
+    color: black;
+}
+
+@media (max-width: 768px) {
+    .leaderboard-container {
+        width: 95%;
+    }
+    
+    #leaderboard th, #leaderboard td {
+        padding: 8px 5px;
+        font-size: 14px;
+    }
+}

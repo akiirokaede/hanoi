@@ -1,0 +1,563 @@
+/* 全局样式 */
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #2ecc71;
+    --accent-color: #e74c3c;
+    --dark-color: #2c3e50;
+    --light-color: #ecf0f1;
+    --shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'ZCOOL QingKe HuangYou', sans-serif;
+    background: linear-gradient(135deg, #1a2a3a 0%, #3a4a5a 100%);
+    color: var(--light-color);
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.screen {
+    display: none;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 20px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.5s ease;
+}
+
+.screen.active {
+    display: flex;
+    animation: fadeIn 0.5s ease;
+    z-index: 1; /* 确保活动屏幕显示在最前面 */
+}
+
+/* 按钮样式 */
+.btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    margin: 10px;
+    border-radius: 25px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'ZCOOL QingKe HuangYou', sans-serif;
+    box-shadow: var(--shadow);
+    min-width: 150px;
+    text-align: center;
+    position: relative; /* 确保按钮正确定位 */
+    z-index: 2; /* 确保按钮在最前面 */
+}
+
+.btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    background: #2980b9;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.game-btn {
+    font-size: 14px;
+    padding: 8px 15px;
+    border-radius: 15px;
+    min-width: auto;
+}
+
+/* 开始屏幕 */
+#start-screen {
+    background: linear-gradient(to bottom, #1a2a3a, #2c3e50);
+    z-index: 5; /* 确保开始界面在最前面 */
+}
+
+#start-screen h1 {
+    font-size: 60px;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+    text-shadow: 0 0 10px rgba(52, 152, 219, 0.7);
+    font-family: 'Orbitron', 'ZCOOL QingKe HuangYou', sans-serif;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+#start-screen .tagline {
+    font-size: 24px;
+    margin-bottom: 30px;
+    color: var(--secondary-color);
+    text-align: center;
+}
+
+/* 游戏屏幕 */
+#game-screen {
+    background: linear-gradient(to bottom, #1a2a3a, #2c3e50);
+    display: flex;
+    flex-direction: column;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 10px 20px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.level-info, .score-info, .timer {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.level-goal {
+    font-size: 14px;
+    color: var(--secondary-color);
+}
+
+.game-area {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#towers-container {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    height: 350px;
+    position: relative;
+    perspective: 1000px;
+    margin-bottom: 20px;
+}
+
+.tower {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    width: 30%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.pole {
+    width: 20px;
+    height: 250px;
+    background-color: #95a5a6;
+    border-radius: 5px;
+    box-shadow: var(--shadow);
+    position: absolute;
+    bottom: 20px; /* 确保柱子位于基座之上 */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+}
+
+.base {
+    width: 180px;
+    height: 20px;
+    background-color: #7f8c8d;
+    border-radius: 5px;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: var(--shadow);
+    z-index: 1;
+}
+
+.disc {
+    position: absolute;
+    height: 30px;
+    border-radius: 15px;
+    box-shadow: var(--shadow);
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: black;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.tower.selected .pole {
+    background-color: var(--primary-color);
+}
+
+#items-container {
+    width: 100%;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    margin-top: auto;
+}
+
+#items-container h3 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+#items-list {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.item {
+    width: 50px;
+    height: 50px;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.item:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.item-icon {
+    width: 30px;
+    height: 30px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+/* 道具数量标签样式 */
+.item-count {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background-color: var(--accent-color);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+.item-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.item:hover .item-tooltip {
+    opacity: 1;
+    bottom: 110%;
+}
+
+.game-footer {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 20px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    margin-top: 20px;
+}
+
+#moves {
+    font-size: 18px;
+}
+
+#message {
+    color: var(--accent-color);
+    font-size: 18px;
+    text-align: center;
+}
+
+/* 暂停屏幕 */
+#pause-screen {
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 10;
+}
+
+.pause-menu {
+    background-color: var(--dark-color);
+    padding: 30px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: var(--shadow);
+}
+
+/* 游戏结束屏幕 */
+#game-over-screen, #level-complete-screen, #tutorial-screen, #leaderboard-screen {
+    background: linear-gradient(to bottom, #1a2a3a, #2c3e50);
+    z-index: 5;
+}
+
+#game-over-screen h2, #level-complete-screen h2, #tutorial-screen h2, #leaderboard-screen h2 {
+    font-size: 36px;
+    margin-bottom: 20px;
+    color: var(--accent-color);
+    text-shadow: 0 0 10px rgba(231, 76, 60, 0.7);
+}
+
+.stats, .level-stats {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    width: 300px;
+    text-align: center;
+}
+
+.stats p, .level-stats p {
+    margin: 10px 0;
+    font-size: 18px;
+}
+
+.name-input {
+    margin: 20px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.name-input label {
+    margin-bottom: 10px;
+}
+
+.name-input input {
+    padding: 10px;
+    border-radius: 5px;
+    border: none;
+    margin-bottom: 10px;
+    width: 200px;
+    font-family: 'ZCOOL QingKe HuangYou', sans-serif;
+    font-size: 16px;
+}
+
+/* 关卡完成屏幕 */
+#reward-section {
+    width: 100%;
+    max-width: 400px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+#rewards-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.reward-item {
+    width: 70px;
+    height: 70px;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 5px;
+    transition: all 0.3s ease;
+    animation: pop 0.5s ease;
+}
+
+.reward-item:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+}
+
+.reward-icon {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 5px;
+    background-size: contain; /* 确保图标完整显示 */
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.reward-name {
+    font-size: 12px;
+    text-align: center;
+}
+
+/* 教程屏幕 */
+.tutorial-content {
+    width: 80%;
+    max-width: 800px;
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow-y: auto;
+    max-height: 70vh;
+}
+
+.tutorial-content p, .tutorial-content li {
+    margin: 10px 0;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.tutorial-content h3 {
+    color: var(--primary-color);
+    margin: 20px 0 10px;
+}
+
+.tutorial-content ul {
+    padding-left: 20px;
+}
+
+/* 道具通知 */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    padding: 15px;
+    z-index: 100;
+    transition: all 0.5s ease;
+    box-shadow: var(--shadow);
+}
+
+.notification.hidden {
+    transform: translateX(120%);
+    opacity: 0;
+}
+
+.notification-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.notification-content h3 {
+    color: var(--secondary-color);
+    margin-bottom: 10px;
+}
+
+#item-icon {
+    width: 50px;
+    height: 50px;
+    margin: 10px 0;
+}
+
+#item-name {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+#item-description {
+    font-size: 14px;
+}
+
+/* 动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes pop {
+    0% {
+        transform: scale(0);
+    }
+    70% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.tower.hint {
+    animation: float 1s infinite;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    #game-screen {
+        padding: 10px;
+    }
+    
+    .game-header {
+        flex-wrap: wrap;
+    }
+    
+    #towers-container {
+        height: 300px;
+    }
+    
+    .pole {
+        height: 200px;
+    }
+    
+    .base {
+        width: 120px;
+    }
+    
+    .tutorial-content {
+        width: 95%;
+    }
+}
