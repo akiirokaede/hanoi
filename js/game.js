@@ -374,7 +374,15 @@ class HanoiRoguelike {
     // 启用传送模式（供道具使用）
     enableTeleport() {
         this.teleportMode = true;
-        document.getElementById('message').textContent = '传送模式已激活！请先选择要移动的圆盘所在的塔，然后选择目标塔。';
+        document.getElementById('message').textContent = '传送模式已激活！请选择要移动的圆盘所在的塔。';
+        
+        // 添加视觉效果，使所有可选择的塔发光
+        const towers = document.querySelectorAll('.tower');
+        towers.forEach(tower => {
+            if (!this.towerGame.towers[parseInt(tower.id.split('-')[1]) - 1].isEmpty()) {
+                tower.classList.add('teleport-target-ready');
+            }
+        });
         
         // 等待玩家选择塔
         this.waitForTeleportSelection();
@@ -394,10 +402,29 @@ class HanoiRoguelike {
             
             if (!fromTower) {
                 // 第一次点击，选择源塔
+                // 移除所有塔的预选择状态
+                document.querySelectorAll('.tower').forEach(t => {
+                    t.classList.remove('teleport-target-ready');
+                });
+                
+                // 检查所选塔是否为空
+                if (tower.isEmpty()) {
+                    document.getElementById('message').textContent = '这个塔没有圆盘可移动！请选择其他塔。';
+                    return;
+                }
+                
                 fromTower = tower;
                 
                 // 高亮显示选中的塔
-                fromTower.element.classList.add('selected-tower');
+                fromTower.element.classList.add('teleport-source');
+                
+                // 添加视觉效果到可选的目标塔
+                const towers = document.querySelectorAll('.tower');
+                towers.forEach(t => {
+                    if (t !== fromTower.element) {
+                        t.classList.add('teleport-target-ready');
+                    }
+                });
                 
                 // 更新提示消息
                 document.getElementById('message').textContent = '现在请选择目标塔...';
@@ -407,8 +434,38 @@ class HanoiRoguelike {
                 // 第二次点击，选择目标塔
                 const toTower = tower;
                 
+                // 如果点击的是同一个塔，取消选择
+                if (fromTower === toTower) {
+                    document.getElementById('message').textContent = '传送已取消。请重新选择要移动的圆盘所在的塔。';
+                    
+                    // 移除所有塔的状态
+                    document.querySelectorAll('.tower').forEach(t => {
+                        t.classList.remove('teleport-source', 'teleport-target-ready');
+                    });
+                    
+                    // 重新显示可选择的塔
+                    document.querySelectorAll('.tower').forEach(t => {
+                        const tId = parseInt(t.id.split('-')[1]);
+                        if (!this.towerGame.towers[tId - 1].isEmpty()) {
+                            t.classList.add('teleport-target-ready');
+                        }
+                    });
+                    
+                    fromTower = null;
+                    return;
+                }
+                
                 // 移除高亮显示
-                fromTower.element.classList.remove('selected-tower');
+                fromTower.element.classList.remove('teleport-source');
+                
+                // 移除所有塔的预选择状态
+                document.querySelectorAll('.tower').forEach(t => {
+                    t.classList.remove('teleport-target-ready');
+                });
+                
+                // 添加传送动画效果到源塔和目标塔
+                fromTower.element.classList.add('teleporting');
+                toTower.element.classList.add('teleporting');
                 
                 // 使用传送石 - 调用TowerGame中的方法
                 this.towerGame.useTeleportItem(fromTower, toTower);
@@ -424,7 +481,13 @@ class HanoiRoguelike {
                 
                 // 更新提示消息
                 document.getElementById('message').textContent = '传送完成！';
-                setTimeout(() => document.getElementById('message').textContent = '', 2000);
+                setTimeout(() => {
+                    document.getElementById('message').textContent = '';
+                    
+                    // 移除传送动画效果
+                    fromTower.element.classList.remove('teleporting');
+                    toTower.element.classList.remove('teleporting');
+                }, 2000);
                 
                 // 播放传送音效
                 playSound('teleport');
