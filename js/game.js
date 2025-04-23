@@ -115,11 +115,33 @@ class HanoiRoguelike {
         document.getElementById('level-number').textContent = levelConfig.level;
         document.getElementById('moves-goal').textContent = levelConfig.moveLimit;
         
-        // 设置塔游戏 - 更新以支持动态塔数量
+        // 显示特殊事件名称（如果有）
+        if (levelConfig.specialEventName) {
+            const specialEventMsg = document.getElementById('special-event-message') || 
+                (() => {
+                    const msg = document.createElement('div');
+                    msg.id = 'special-event-message';
+                    msg.className = 'special-event-message';
+                    // 修复：使用正确的元素选择器，改用'.game-header'替代'.game-info'
+                    document.querySelector('.game-header').appendChild(msg);
+                    return msg;
+                })();
+                
+            specialEventMsg.textContent = levelConfig.specialEventName;
+            specialEventMsg.classList.add('show');
+            
+            // 5秒后隐藏
+            setTimeout(() => {
+                specialEventMsg.classList.remove('show');
+            }, 5000);
+        }
+        
+        // 设置塔游戏 - 更新以支持动态塔数量和特殊事件配置
         this.towerGame.setLevel(
             levelConfig.discCount, 
             levelConfig.moveLimit, 
-            levelConfig.towerCount || 3 // 确保有默认值
+            levelConfig.towerCount || 3, // 确保有默认值
+            levelConfig // 传递完整的关卡配置，包含特殊事件信息
         );
         
         // 设置并启动计时器
@@ -139,6 +161,15 @@ class HanoiRoguelike {
         this.screens.game.style.display = 'flex';
         this.screens.game.classList.add('active');
         this.screens.game.style.zIndex = '5';
+        
+        // 监听时间祝福事件
+        document.removeEventListener('timeBlessing', this.handleTimeBlessing); // 先移除以避免重复
+        this.handleTimeBlessing = (e) => {
+            if (e.detail && e.detail.bonusSeconds) {
+                this.timer.addTime(e.detail.bonusSeconds);
+            }
+        };
+        document.addEventListener('timeBlessing', this.handleTimeBlessing);
     }
     
     // 暂停游戏
@@ -186,6 +217,29 @@ class HanoiRoguelike {
         
         playSound('game_over');
         this.isPlaying = false;
+        
+        // 移除游戏界面中的特殊样式
+        document.getElementById('game-screen').classList.remove('treasure-level');
+        
+        // 移除迷雾效果（如果有）
+        const fogOverlay = document.querySelector('.fog-overlay');
+        if (fogOverlay && fogOverlay.parentNode) {
+            fogOverlay.parentNode.removeChild(fogOverlay);
+        }
+        
+        // 恢复被诅咒修改的样式
+        document.querySelectorAll('.ui-element.foggy').forEach(elem => {
+            elem.classList.remove('foggy');
+        });
+        
+        document.querySelectorAll('.wobble-tower').forEach(elem => {
+            elem.classList.remove('wobble-tower');
+        });
+        
+        // 恢复CSS变量
+        document.documentElement.style.removeProperty('--disc-move-speed');
+        document.documentElement.style.removeProperty('--disc-transition');
+        
         this.showGameOverScreen();
     }
     

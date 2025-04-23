@@ -640,6 +640,163 @@ body {
     animation: float 1s infinite;
 }
 
+/* 特殊事件消息样式 */
+.special-event-message {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: bold;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 100;
+}
+
+.special-event-message.show {
+    opacity: 1;
+}
+
+/* 特殊事件样式 */
+/* 特大圆盘挑战样式已在Disc类构造函数中通过JS设置 */
+
+/* 迷你塔样式已在Tower类构造函数中通过JS设置 */
+
+/* 隐形圆盘样式已在Disc类构造函数中通过JS设置 */
+
+/* 双目标样式 */
+.target-marker {
+    animation: pulse 2s infinite;
+}
+
+/* 宝藏关卡样式 */
+.treasure-level .game-area {
+    background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), 
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><rect width="100%" height="100%" fill="none"/><path d="M0 0L20 20ZM20 0L0 20Z" stroke="%23f1c40f" stroke-width="1"/></svg>');
+}
+
+.tower .base.treasure {
+    background: linear-gradient(45deg, #f1c40f, #e67e22);
+    box-shadow: 0 0 15px rgba(241, 196, 15, 0.7);
+}
+
+.shimmer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        rgba(255, 255, 255, 0) 0%, 
+        rgba(255, 255, 255, 0.5) 50%, 
+        rgba(255, 255, 255, 0) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite linear;
+}
+
+/* 迷雾诅咒样式 */
+.fog-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><filter id="fog"><feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="5"/><feDisplacementMap in="SourceGraphic" scale="180"/></filter><rect width="100%" height="100%" filter="url(%23fog)" opacity="0.3" fill="rgba(200, 200, 255, 0.3)"/></svg>');
+    pointer-events: none;
+    z-index: 50;
+}
+
+.ui-element.foggy {
+    filter: blur(3px);
+    opacity: 0.7;
+}
+
+/* 迷失诅咒样式 */
+@keyframes wobble {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+.wobble-tower {
+    animation: wobble 2s infinite ease-in-out;
+}
+
+/* 晕眩诅咒样式已在TowerGame.applyCurses方法中通过JS设置 */
+
+/* 祝福样式 */
+.blessing-reset-button {
+    background-color: #2ecc71;
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    text-align: center;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.3s;
+}
+
+.blessing-reset-button:hover {
+    background-color: #27ae60;
+}
+
+.blessing-reset-button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+/* 消息样式 */
+.curse-message {
+    color: #e74c3c !important;
+    font-weight: bold;
+    animation: shake 0.5s linear;
+}
+
+.blessing-message {
+    color: #2ecc71 !important;
+    font-weight: bold;
+    animation: float 1s ease-in-out;
+}
+
+.treasure-message {
+    color: #f1c40f !important;
+    font-weight: bold;
+    animation: shine 2s linear infinite;
+}
+
+/* 动画定义 */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+@keyframes shine {
+    0% { text-shadow: 0 0 5px rgba(241, 196, 15, 0.5); }
+    50% { text-shadow: 0 0 15px rgba(241, 196, 15, 1); }
+    100% { text-shadow: 0 0 5px rgba(241, 196, 15, 0.5); }
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     #game-screen {

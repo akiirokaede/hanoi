@@ -3,7 +3,7 @@
  * 处理塔和圆盘的逻辑
  */
 class Tower {
-    constructor(id, totalTowers = 3) {
+    constructor(id, totalTowers = 3, specialConfig = {}) {
         this.id = id;
         // 需要动态创建塔座元素
         this.element = document.createElement('div');
@@ -18,6 +18,11 @@ class Tower {
         const poleWidthPercent = Math.max(8, 14 - (totalTowers - 3) * 1.5); // 从14%开始，每多一个柱子减少1.5%，下限为8%
         this.pole.style.width = `${poleWidthPercent}%`;
         
+        // 应用迷你塔效果
+        if (specialConfig.towerHeightMultiplier) {
+            this.pole.style.height = `${specialConfig.towerHeightMultiplier * 100}%`;
+        }
+        
         this.element.appendChild(this.pole);
         
         // 创建基座
@@ -31,6 +36,30 @@ class Tower {
         this.element.appendChild(this.base);
         
         this.discs = [];
+        
+        // 如果是双目标，为目标塔添加特殊标记
+        if (specialConfig.dualTargets && (id === totalTowers || id === totalTowers - 1)) {
+            const marker = document.createElement('div');
+            marker.className = 'target-marker';
+            marker.textContent = '目标';
+            marker.style.position = 'absolute';
+            marker.style.bottom = '-25px';
+            marker.style.left = '50%';
+            marker.style.transform = 'translateX(-50%)';
+            marker.style.color = '#e74c3c';
+            marker.style.fontWeight = 'bold';
+            marker.style.fontSize = '14px';
+            this.element.appendChild(marker);
+        }
+        
+        // 如果是宝藏关卡，为基座添加特殊样式
+        if (specialConfig.treasureLevel) {
+            this.base.classList.add('treasure');
+            // 添加金色闪光效果
+            const shimmer = document.createElement('div');
+            shimmer.className = 'shimmer';
+            this.base.appendChild(shimmer);
+        }
     }
 
     // 添加圆盘到塔座上
@@ -108,7 +137,7 @@ class Tower {
  * 圆盘类
  */
 class Disc {
-    constructor(size, totalDiscs, towerCount = 3) {
+    constructor(size, totalDiscs, towerCount = 3, specialConfig = {}) {
         this.size = size;
         this.element = document.createElement('div');
         this.element.className = 'disc';
@@ -117,8 +146,14 @@ class Disc {
         // 塔越多，圆盘基础宽度越小
         const baseWidthPercentage = Math.max(20, 40 - (towerCount - 3) * 5); // 从40%开始，每多一个塔减少5%
         
+        // 应用特大圆盘效果
+        let sizeMultiplier = 1;
+        if (specialConfig.specialDisc && size === totalDiscs) {
+            sizeMultiplier = specialConfig.discSizeMultiplier || 1.2;
+        }
+        
         // 设置圆盘宽度 - 保持原有的彩虹效果
-        const widthPercentage = baseWidthPercentage + (size / totalDiscs) * 40; // 圆盘宽度范围根据塔数量调整
+        const widthPercentage = (baseWidthPercentage + (size / totalDiscs) * 40) * sizeMultiplier; // 圆盘宽度范围根据塔数量调整
         this.element.style.width = `${widthPercentage}%`;
         
         // 动态计算圆盘高度 - 根据圆盘总数调整
@@ -139,6 +174,11 @@ class Disc {
             discHeight = MIN_DISC_HEIGHT + (heightRange * 0.3 / (1 + 0.2 * (totalDiscs - 7)));
         }
         
+        // 应用特大圆盘效果到高度
+        if (specialConfig.specialDisc && size === totalDiscs) {
+            discHeight *= sizeMultiplier;
+        }
+        
         this.height = Math.round(discHeight); // 保存高度值以供后续使用
         this.element.style.height = `${this.height}px`;
         this.element.style.borderRadius = `${this.height / 2}px`; // 保持圆润的边缘
@@ -154,6 +194,12 @@ class Disc {
         if (totalDiscs > 7) {
             this.element.style.fontSize = '10px';
             this.element.textContent = size;
+        }
+        
+        // 应用隐形圆盘效果
+        if (specialConfig.invisibleDiscs && Math.random() < 0.4) { // 40%的圆盘会变成半透明
+            this.element.style.opacity = '0.3';
+            this.isInvisible = true;
         }
     }
 
@@ -179,7 +225,7 @@ class Disc {
         this.element.style.position = 'absolute';
         this.element.style.bottom = `${finalBottom}px`; // 从底部算起的距离
         this.element.style.left = '50%'; // 水平居中
-        this.element.style.transform = 'translateX(-50%)'; // 确保圆盘中心与柱子对齐
+        this.element.style.transform = 'translateX(-50%)'; // 修复：使用单引号而不是反引号
     }
 }
 
@@ -232,35 +278,79 @@ class TowerGame {
     }
 
     // 设置当前关卡
-    setLevel(discCount, movesGoal, towerCount = 3) {
+    setLevel(discCount, movesGoal, towerCount = 3, specialConfig = {}) {
         this.reset();
         this.discCount = discCount;
         this.movesGoal = movesGoal;
+        this.specialConfig = specialConfig || {}; // 存储特殊事件配置
         
-        // 动态创建塔座
-        this.createTowers(towerCount);
+        // 保存关卡的目标配置
+        this.levelGoals = {
+            discCount,
+            movesGoal,
+            towerCount
+        };
+        
+        // 动态创建塔座，并传入特殊配置
+        this.createTowers(towerCount, specialConfig);
         
         // 计算最优移动次数
         this.optimalMoves = towerCount === 3 ? 
             Math.pow(2, discCount) - 1 : 
             Math.floor((Math.pow(2, discCount) - 1) * 0.8);
         
-        // 创建圆盘，并传入 towerCount 参数
+        // 创建圆盘，并传入 towerCount 和特殊配置参数
         for (let i = discCount; i >= 1; i--) {
-            const disc = new Disc(i, discCount, towerCount);
+            const disc = new Disc(i, discCount, towerCount, specialConfig);
             this.discs.push(disc);
             this.towers[0].addDisc(disc); // 所有圆盘初始放在第一个塔座
         }
         
-        // 设置目标塔 - 通常是最后一个塔
-        this.targetTower = towerCount - 1;
+        // 设置目标塔 - 通常是最后一个塔，除非有特殊配置
+        if (specialConfig.dualTargets) {
+            // 双目标情况：可以选择最后两个塔中的任何一个作为目标
+            this.targetTowers = [towerCount - 2, towerCount - 1];
+            this.targetTower = this.targetTowers[1]; // 默认使用最后一个塔作为主要目标
+        } else {
+            this.targetTower = towerCount - 1;
+            this.targetTowers = [this.targetTower];
+        }
+        
+        // 应用特殊布局（如果有）
+        if (specialConfig.specialLayout) {
+            this.applySpecialLayout(specialConfig);
+        }
+        
+        // 如果是宝藏关卡，添加视觉效果
+        if (specialConfig.treasureLevel) {
+            document.getElementById('game-screen').classList.add('treasure-level');
+            
+            // 显示宝藏关卡提示
+            const message = document.getElementById('message');
+            message.textContent = '宝藏关卡！完成可获得额外奖励！';
+            message.classList.add('treasure-message');
+            setTimeout(() => {
+                message.classList.remove('treasure-message');
+                setTimeout(() => message.textContent = '', 1000);
+            }, 3000);
+        }
+        
+        // 应用诅咒效果
+        if (specialConfig.variation && specialConfig.variation.curses && specialConfig.variation.curses.length > 0) {
+            this.applyCurses(specialConfig.variation.curses);
+        }
+        
+        // 应用祝福效果
+        if (specialConfig.variation && specialConfig.variation.blessings && specialConfig.variation.blessings.length > 0) {
+            this.applyBlessings(specialConfig.variation.blessings);
+        }
         
         this.gameStarted = true;
         this.levelCompleted = false;
     }
 
     // 动态创建塔座 - 更新方法
-    createTowers(towerCount) {
+    createTowers(towerCount, specialConfig = {}) {
         // 获取塔座容器
         const container = document.getElementById('towers-container');
         
@@ -268,21 +358,202 @@ class TowerGame {
         container.innerHTML = '';
         this.towers = [];
         
+        // 应用特殊布局
+        let layout = 'standard'; // 标准布局
+        if (specialConfig.specialLayout) {
+            // 可以根据不同关卡设置不同布局
+            // 例如：圆形布局、三角形布局等
+            layout = specialConfig.layoutType || 'circular';
+        }
+        
         // 创建新的塔座
         for (let i = 1; i <= towerCount; i++) {
-            const tower = new Tower(i, towerCount);
+            const tower = new Tower(i, towerCount, specialConfig);
             this.towers.push(tower);
             container.appendChild(tower.element);
+            
+            // 应用布局样式
+            if (layout === 'circular' && towerCount > 3) {
+                const angle = ((i - 1) / towerCount) * 2 * Math.PI;
+                const radius = 35; // 圆形布局的半径（百分比）
+                const centerX = 50;
+                const centerY = 50;
+                
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                
+                tower.element.style.position = 'absolute';
+                tower.element.style.left = `${x}%`;
+                tower.element.style.top = `${y}%`;
+                tower.element.style.transform = 'translate(-50%, -50%)';
+            }
         }
         
         // 为新塔座添加点击事件
         this.addTowerEventListeners();
         
         // 调整塔座宽度以适应不同数量
-        const towerWidth = `${Math.min(25, 90 / towerCount)}%`;
-        document.querySelectorAll('.tower').forEach(tower => {
-            tower.style.width = towerWidth;
+        if (layout === 'standard') {
+            const towerWidth = `${Math.min(25, 90 / towerCount)}%`;
+            document.querySelectorAll('.tower').forEach(tower => {
+                tower.style.width = towerWidth;
+            });
+        }
+    }
+
+    // 应用特殊布局
+    applySpecialLayout(config) {
+        // 自定义布局元素的位置
+        // 例如：三角形、圆形等不同的塔座排列
+        const layoutType = config.layoutType || 'circular';
+        const gameArea = document.querySelector('.game-area');
+        
+        if (layoutType === 'circular') {
+            gameArea.classList.add('circular-layout');
+        } else if (layoutType === 'triangle') {
+            gameArea.classList.add('triangle-layout');
+        } else {
+            // 其他类型的布局...
+        }
+    }
+
+    // 应用诅咒效果
+    applyCurses(curses) {
+        const gameArea = document.querySelector('.game-area');
+        
+        curses.forEach(curse => {
+            switch (curse) {
+                case "迷雾诅咒":
+                    // 添加迷雾效果到游戏区域
+                    const fogOverlay = document.createElement('div');
+                    fogOverlay.className = 'fog-overlay';
+                    gameArea.appendChild(fogOverlay);
+                    
+                    // 部分UI元素有概率被遮挡
+                    document.querySelectorAll('.ui-element').forEach(elem => {
+                        if (Math.random() < 0.3) { // 30%概率被遮挡
+                            elem.classList.add('foggy');
+                        }
+                    });
+                    break;
+                    
+                case "迷失诅咒":
+                    // 塔的位置会轻微随机移动
+                    this.towers.forEach(tower => {
+                        // 添加随机微移动动画
+                        tower.element.classList.add('wobble-tower');
+                    });
+                    break;
+                    
+                case "迟缓诅咒":
+                    // 移动动画变慢
+                    document.documentElement.style.setProperty('--disc-move-speed', '1.5s');
+                    document.documentElement.style.setProperty('--disc-transition', 'all 1.5s cubic-bezier(0.34, 1.56, 0.64, 1)');
+                    break;
+                    
+                case "晕眩诅咒":
+                    // 圆盘颜色混乱
+                    this.discs.forEach(disc => {
+                        const randomHue = Math.floor(Math.random() * 360);
+                        disc.element.style.backgroundColor = `hsl(${randomHue}, 80%, 60%)`;
+                    });
+                    break;
+            }
         });
+        
+        // 显示诅咒信息
+        if (curses.length > 0) {
+            const message = document.getElementById('message');
+            message.textContent = `诅咒生效：${curses.join('，')}`;
+            message.classList.add('curse-message');
+            setTimeout(() => {
+                message.classList.remove('curse-message');
+                setTimeout(() => message.textContent = '', 1000);
+            }, 3000);
+        }
+    }
+
+    // 应用祝福效果
+    applyBlessings(blessings) {
+        blessings.forEach(blessing => {
+            switch (blessing) {
+                case "时间祝福":
+                    // 每次移动增加1秒时间，实现在game.js中
+                    this.hasBlessingTimeBonus = true;
+                    break;
+                    
+                case "清晰祝福":
+                    // 显示提示概率增加
+                    this.hintChanceBonus = 0.3; // 提示概率增加30%
+                    break;
+                    
+                case "幸运祝福":
+                    // 道具掉落率提高，在checkItemTrigger方法中实现
+                    this.itemChanceBonus = 0.2; // 道具掉率提高20%
+                    break;
+                    
+                case "重置祝福":
+                    // 添加重置按钮
+                    const resetButton = document.createElement('button');
+                    resetButton.textContent = '重置当前布局';
+                    resetButton.className = 'blessing-reset-button';
+                    resetButton.addEventListener('click', () => {
+                        // 保存当前移动次数
+                        const currentMoves = this.moveCount;
+                        
+                        // 重置布局
+                        this.reset();
+                        this.setLevel(
+                            this.levelGoals.discCount,
+                            this.levelGoals.movesGoal,
+                            this.levelGoals.towerCount,
+                            this.specialConfig
+                        );
+                        
+                        // 恢复移动次数
+                        this.moveCount = currentMoves;
+                        this.updateMoves();
+                        
+                        // 禁用按钮（一次性使用）
+                        resetButton.disabled = true;
+                        resetButton.textContent = '已使用重置';
+                        setTimeout(() => {
+                            if (resetButton.parentNode) {
+                                resetButton.parentNode.removeChild(resetButton);
+                            }
+                        }, 3000);
+                    });
+                    
+                    // 修复：将按钮添加到game-footer而不是不存在的game-controls
+                    const gameFooter = document.querySelector('.game-footer');
+                    if (gameFooter) {
+                        gameFooter.appendChild(resetButton);
+                    } else {
+                        // 后备方案：如果找不到game-footer，尝试添加到game-area
+                        const gameArea = document.querySelector('.game-area');
+                        if (gameArea) {
+                            resetButton.style.position = 'absolute';
+                            resetButton.style.bottom = '10px';
+                            resetButton.style.left = '50%';
+                            resetButton.style.transform = 'translateX(-50%)';
+                            resetButton.style.zIndex = '10';
+                            gameArea.appendChild(resetButton);
+                        }
+                    }
+                    break;
+            }
+        });
+        
+        // 显示祝福信息
+        if (blessings.length > 0) {
+            const message = document.getElementById('message');
+            message.textContent = `祝福降临：${blessings.join('，')}`;
+            message.classList.add('blessing-message');
+            setTimeout(() => {
+                message.classList.remove('blessing-message');
+                setTimeout(() => message.textContent = '', 1000);
+            }, 3000);
+        }
     }
 
     // 移动圆盘
@@ -536,39 +807,69 @@ class TowerGame {
         document.getElementById('moves-count').textContent = this.moveCount;
     }
 
-    // 检查关卡是否完成
+    // 重写检查关卡是否完成方法以支持双目标
     checkCompletion() {
-        // 判断所有圆盘是否都移到了目标塔座
-        if (this.towers[this.targetTower].getDiscCount() === this.discCount) {
-            this.levelCompleted = true;
-            this.gameStarted = false;
-            
-            playSound('complete');
-            document.getElementById('message').textContent = '恭喜！关卡完成！';
-            
-            // 触发关卡完成事件
-            const event = new CustomEvent('levelCompleted', {
-                detail: {
-                    moveCount: this.moveCount,
-                    movesGoal: this.movesGoal,
-                    optimalMoves: this.optimalMoves
-                }
-            });
-            document.dispatchEvent(event);
+        // 如果有多个目标塔（双目标）
+        if (this.targetTowers && this.targetTowers.length > 1) {
+            // 检查任意一个目标塔是否包含全部圆盘
+            const completed = this.targetTowers.some(targetIndex => 
+                this.towers[targetIndex].getDiscCount() === this.discCount);
+                
+            if (completed) {
+                this.levelCompleted = true;
+                this.gameStarted = false;
+                
+                playSound('complete');
+                document.getElementById('message').textContent = '恭喜！关卡完成！';
+                
+                // 触发关卡完成事件
+                const event = new CustomEvent('levelCompleted', {
+                    detail: {
+                        moveCount: this.moveCount,
+                        movesGoal: this.movesGoal,
+                        optimalMoves: this.optimalMoves
+                    }
+                });
+                document.dispatchEvent(event);
+            }
+        } else {
+            // 标准单一目标塔检查
+            if (this.towers[this.targetTower].getDiscCount() === this.discCount) {
+                this.levelCompleted = true;
+                this.gameStarted = false;
+                
+                playSound('complete');
+                document.getElementById('message').textContent = '恭喜！关卡完成！';
+                
+                // 触发关卡完成事件
+                const event = new CustomEvent('levelCompleted', {
+                    detail: {
+                        moveCount: this.moveCount,
+                        movesGoal: this.movesGoal,
+                        optimalMoves: this.optimalMoves
+                    }
+                });
+                document.dispatchEvent(event);
+            }
         }
     }
 
-    // 检查是否触发道具
+    // 修改检查道具触发方法以支持幸运祝福
     checkItemTrigger() {
         // 降低道具触发频率
-        const BASE_CHANCE = 15; // 基础触发几率降低到15%
+        let BASE_CHANCE = 15; // 基础触发几率为15%
         
-        // 1. 如果玩家接近最优解，有较小几率获得道具
+        // 应用幸运祝福效果（如果有）
+        if (this.itemChanceBonus) {
+            BASE_CHANCE += this.itemChanceBonus * 100; // 将小数转换为百分比加成
+        }
+        
+        // 1. 如果玩家接近最优解，有几率获得道具
         if (this.moveCount === Math.floor(this.optimalMoves * 0.7) && chance(BASE_CHANCE)) {
             this.triggerItemSpawn('optimality');
         }
         
-        // 2. 玩家在特定塔座配置时获得道具，降低触发几率
+        // 2. 玩家在特定塔座配置时获得道具
         const allTowersHaveDiscs = this.towers.every(tower => !tower.isEmpty());
         if (allTowersHaveDiscs && chance(BASE_CHANCE)) {
             this.triggerItemSpawn('balance');
@@ -577,6 +878,15 @@ class TowerGame {
         // 3. 关卡首次移动时，有小几率获得"新手幸运"道具
         if (this.moveCount === 5 && chance(BASE_CHANCE)) {
             this.triggerItemSpawn('beginner_luck');
+        }
+        
+        // 时间祝福效果：每次移动增加1秒
+        if (this.hasBlessingTimeBonus) {
+            // 触发时间增加事件
+            const timeEvent = new CustomEvent('timeBlessing', {
+                detail: { bonusSeconds: 1 }
+            });
+            document.dispatchEvent(timeEvent);
         }
     }
 
