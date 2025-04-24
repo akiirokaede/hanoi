@@ -401,45 +401,79 @@ class HanoiRoguelike {
                     id: `curse-fog-${Date.now()}`,
                     type: 'curse',
                     name: '迷雾诅咒',
-                    description: '视野受阻，UI元素模糊',
+                    description: '随机覆盖一座塔，让人看不清圆盘',
                     duration: curseDuration,
                     icon: '🌫️',
                     onStart: (game) => {
-                        const fogOverlay = document.createElement('div');
-                        fogOverlay.className = 'fog-overlay';
-                        fogOverlay.id = 'fog-curse-overlay';
-                        document.querySelector('.game-area').appendChild(fogOverlay);
+                        // 初始化迷雾诅咒的状态
+                        game.fogCurseState = {
+                            lastChangeTime: Date.now(),
+                            coverInterval: 20000, // 每20秒切换一次被覆盖的塔
+                            coveredTowerIndex: -1, // 初始无覆盖
+                            fogElements: {}
+                        };
                         
-                        document.querySelectorAll('.ui-element, .disc').forEach(elem => {
-                            if (Math.random() < 0.3) {
-                                elem.classList.add('foggy');
-                            }
-                        });
+                        // 立即应用第一次迷雾效果
+                        this.applyFogToRandomTower(game);
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '迷雾诅咒生效！一座塔被迷雾覆盖！';
+                        message.classList.add('curse-message');
+                        setTimeout(() => {
+                            message.classList.remove('curse-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('迷雾诅咒')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 3000);
                     },
                     onTick: (game) => {
-                        const fogOverlay = document.getElementById('fog-curse-overlay');
-                        if (fogOverlay) {
-                            const opacity = 0.2 + (Math.sin(Date.now() / 1000) + 1) * 0.15;
-                            fogOverlay.style.opacity = opacity.toString();
-                        }
-                        
-                        if (Math.random() < 0.05) {
-                            document.querySelectorAll('.ui-element, .disc').forEach(elem => {
-                                if (Math.random() < 0.2) {
-                                    elem.classList.toggle('foggy');
-                                }
-                            });
+                        // 检查是否需要切换被覆盖的塔
+                        const now = Date.now();
+                        if (now - game.fogCurseState.lastChangeTime >= game.fogCurseState.coverInterval) {
+                            // 移除当前迷雾效果
+                            this.removeFogFromTower(game);
+                            
+                            // 应用新的迷雾效果到随机塔
+                            this.applyFogToRandomTower(game);
+                            
+                            // 更新上次切换时间
+                            game.fogCurseState.lastChangeTime = now;
+                            
+                            // 播放迷雾切换音效
+                            playSound('move');
+                            
+                            // 简短的信息提示
+                            const message = document.getElementById('message');
+                            message.textContent = '迷雾移动了！';
+                            message.classList.add('curse-message');
+                            setTimeout(() => {
+                                message.classList.remove('curse-message');
+                                message.textContent = '';
+                            }, 1500);
                         }
                     },
                     onEnd: (game) => {
-                        const fogOverlay = document.getElementById('fog-curse-overlay');
-                        if (fogOverlay && fogOverlay.parentNode) {
-                            fogOverlay.parentNode.removeChild(fogOverlay);
-                        }
+                        // 移除所有迷雾效果
+                        this.removeFogFromTower(game);
                         
-                        document.querySelectorAll('.foggy').forEach(elem => {
-                            elem.classList.remove('foggy');
-                        });
+                        // 清理状态
+                        delete game.fogCurseState;
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '迷雾诅咒已结束！';
+                        message.classList.add('blessing-message');
+                        setTimeout(() => {
+                            message.classList.remove('blessing-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('诅咒已结束')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 2000);
                     }
                 });
                 break;
@@ -1267,7 +1301,7 @@ class HanoiRoguelike {
             {
                 id: "迷雾诅咒",
                 name: "迷雾诅咒",
-                description: "视野受阻，UI元素模糊",
+                description: "随机覆盖一座塔，让人看不清圆盘",
                 icon: "🌫️"
             },
             {
@@ -1399,5 +1433,102 @@ class HanoiRoguelike {
         }
         
         console.log('全局效果清理完成');
+    }
+    
+    // 应用迷雾效果到随机塔
+    applyFogToRandomTower(game) {
+        // 获取塔的总数量
+        const towerCount = game.towerGame.towers.length;
+        if (towerCount <= 0) return;
+        
+        // 选择一个随机塔（避免选到当前已覆盖的塔）
+        let randomTowerIndex;
+        do {
+            randomTowerIndex = Math.floor(Math.random() * towerCount);
+        } while (randomTowerIndex === game.fogCurseState.coveredTowerIndex);
+        
+        // 更新被覆盖的塔索引
+        game.fogCurseState.coveredTowerIndex = randomTowerIndex;
+        
+        // 获取选中的塔元素
+        const towerElement = game.towerGame.towers[randomTowerIndex].element;
+        
+        // 创建迷雾覆盖元素 - 使用完全不透明的深色背景
+        const fogCover = document.createElement('div');
+        fogCover.className = 'tower-fog-cover';
+        fogCover.id = `tower-fog-cover-${randomTowerIndex}`;
+        fogCover.style.position = 'absolute';
+        fogCover.style.top = '0';
+        fogCover.style.left = '0';
+        fogCover.style.width = '100%';
+        fogCover.style.height = '100%';
+        fogCover.style.backgroundColor = '#5e6a75'; // 使用不透明的深灰色
+        fogCover.style.borderRadius = '10px';
+        fogCover.style.zIndex = '999'; // 使用极高的z-index确保覆盖所有内容
+        fogCover.style.opacity = '0';
+        fogCover.style.transition = 'opacity 1.5s ease-in';
+        
+        // 添加迷雾图案
+        fogCover.style.backgroundImage = 'url("data:image/svg+xml,%3Csvg width=\'100%25\' height=\'100%25\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cfilter id=\'foggy\' x=\'0\' y=\'0\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.01\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3CfeColorMatrix type=\'saturate\' values=\'0\'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type=\'linear\' slope=\'0.2\'/%3E%3CfeFuncG type=\'linear\' slope=\'0.2\'/%3E%3CfeFuncB type=\'linear\' slope=\'0.2\'/%3E%3C/feComponentTransfer%3E%3CfeGaussianBlur stdDeviation=\'5\'/%3E%3C/filter%3E%3C/defs%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23foggy)\'/%3E%3C/svg%3E")';
+        fogCover.style.backgroundSize = 'cover';
+        
+        // 添加一些移动的动画以增强迷雾效果
+        fogCover.style.animation = 'fogMovement 20s infinite alternate';
+        
+        // 添加到塔元素
+        towerElement.appendChild(fogCover);
+        
+        // 存储对迷雾元素的引用
+        game.fogCurseState.fogElements[randomTowerIndex] = fogCover;
+        
+        // 触发重排
+        void fogCover.offsetWidth;
+        
+        // 淡入迷雾效果
+        fogCover.style.opacity = '1'; // 几乎完全不透明
+        
+        // 添加粒子效果
+        if (window.createParticleEffect) {
+            const rect = towerElement.getBoundingClientRect();
+            const x = rect.left + rect.width / 2 - document.querySelector('.game-area').getBoundingClientRect().left;
+            const y = rect.top + rect.height / 2 - document.querySelector('.game-area').getBoundingClientRect().top;
+            window.createParticleEffect('curse', x, y);
+        }
+        
+        // 添加迷雾飘动效果
+        const fogAnimation = document.createElement('style');
+        fogAnimation.textContent = `
+            @keyframes fogMovement {
+                0% { background-position: 0% 0%; }
+                25% { background-position: 20% 10%; }
+                50% { background-position: 10% 20%; }
+                75% { background-position: -10% 10%; }
+                100% { background-position: 0% 0%; }
+            }
+        `;
+        document.head.appendChild(fogAnimation);
+    }
+    
+    // 移除塔上的迷雾效果
+    removeFogFromTower(game) {
+        const coveredTowerIndex = game.fogCurseState.coveredTowerIndex;
+        if (coveredTowerIndex < 0) return;
+        
+        const fogElement = game.fogCurseState.fogElements[coveredTowerIndex];
+        if (!fogElement) return;
+        
+        // 淡出动画
+        fogElement.style.opacity = '0';
+        
+        // 一秒后移除元素
+        setTimeout(() => {
+            if (fogElement.parentNode) {
+                fogElement.parentNode.removeChild(fogElement);
+            }
+            delete game.fogCurseState.fogElements[coveredTowerIndex];
+        }, 1000);
+        
+        // 重置索引
+        game.fogCurseState.coveredTowerIndex = -1;
     }
 }
