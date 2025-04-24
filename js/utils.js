@@ -430,26 +430,56 @@ class EffectsSystem {
     removeEffect(id) {
         if (!this.effects.has(id)) return;
         
-        const effect = this.effects.get(id);
-        
-        // 执行结束回调
-        if (effect.onEnd) effect.onEnd(this.game);
-        
-        // 视觉指示器优雅消失
-        if (effect.element) {
-            effect.element.style.opacity = '0';
-            effect.element.style.transform = 'translateY(20px)';
+        try {
+            const effect = this.effects.get(id);
             
-            // 等待动画完成后删除元素
-            setTimeout(() => {
-                if (effect.element && effect.element.parentNode) {
-                    effect.element.parentNode.removeChild(effect.element);
+            // 执行结束回调
+            if (effect.onEnd) {
+                try {
+                    effect.onEnd(this.game);
+                } catch (error) {
+                    console.error(`执行效果 ${id} 的 onEnd 回调时出错:`, error);
+                    // 捕获错误但不中断游戏流程
                 }
-            }, 500);
+            }
+            
+            // 视觉指示器优雅消失
+            if (effect.element) {
+                try {
+                    effect.element.style.opacity = '0';
+                    effect.element.style.transform = 'translateY(20px)';
+                    
+                    // 等待动画完成后删除元素
+                    setTimeout(() => {
+                        try {
+                            if (effect.element && effect.element.parentNode) {
+                                effect.element.parentNode.removeChild(effect.element);
+                            }
+                        } catch (err) {
+                            console.warn('移除效果元素时出错:', err);
+                            // 捕获错误但不中断游戏流程
+                        }
+                    }, 500);
+                } catch (err) {
+                    console.warn('设置效果元素样式时出错:', err);
+                    // 尝试直接移除元素
+                    try {
+                        if (effect.element && effect.element.parentNode) {
+                            effect.element.parentNode.removeChild(effect.element);
+                        }
+                    } catch (removeErr) {
+                        console.error('无法移除效果元素:', removeErr);
+                    }
+                }
+            }
+            
+            // 从效果列表移除
+            this.effects.delete(id);
+        } catch (error) {
+            console.error(`移除效果 ${id} 时出错:`, error);
+            // 确保即使出错也从列表中移除
+            this.effects.delete(id);
         }
-        
-        // 从效果列表移除
-        this.effects.delete(id);
     }
     
     // 检查效果是否存在

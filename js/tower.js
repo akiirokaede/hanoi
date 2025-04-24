@@ -244,12 +244,12 @@ class Disc {
         this.element.style.transform = 'translateX(-50%)'; // 使用单引号而不是反引号
     }
     
-    // 应用晕眩诅咒效果
+    // 应用晕眩诅咙效果
     applyDizziness() {
         this.element.classList.add('dizzy');
     }
     
-    // 移除晕眩诅咒效果
+    // 移除晕眩诅咙效果
     removeDizziness() {
         this.element.classList.remove('dizzy');
     }
@@ -1219,9 +1219,231 @@ class TowerGame {
             }
         }
         
-        // 2. 对于多塔情况，尝试避免来回移动同一个圆盘
-        // 分析最近几步的移动，避免来回移动
-        return null; // 如果没有特定的Frame-Stewart移动，返回null以便使用后备策略
+        // 2. 计算Frame-Stewart的最优k值（分配到辅助塔的圆盘数量）
+        const n = this.discCount;
+        const m = this.towers.length;
+        
+        // Frame-Stewart算法的k值计算，这是一个近似最优解
+        let k = Math.floor(n - Math.sqrt(2 * n - 0.5) + 0.5);
+        // 对于较小的问题，直接使用查表法获取最优k值
+        if (n <= 10 && m === 4) {
+            // 4塔汉诺塔的最优k值表（针对n=1到10）
+            const optimalK = [0, 0, 1, 2, 2, 3, 3, 4, 4, 4];
+            k = optimalK[n - 1];
+        }
+        
+        // 3. 根据当前状态确定处于Frame-Stewart算法的哪个阶段
+        // 阶段1：将前k个圆盘移动到辅助塔
+        // 阶段2：将最大的n-k个圆盘按标准方式移到目标塔
+        // 阶段3：将k个圆盘从辅助塔移到目标塔
+        
+        // 确定当前所处阶段
+        let currentPhase = 1;
+        
+        // 检查源塔和辅助塔的状态来确定阶段
+        const sourceTowerDiscs = this.towers[0].getDiscCount();
+        let auxiliaryTower = -1;
+        
+        // 查找包含较小圆盘的辅助塔
+        for (let i = 1; i < this.towers.length - 1; i++) {
+            if (this.towers[i].getDiscCount() > 0) {
+                if (auxiliaryTower === -1 || 
+                    this.towers[i].getDiscCount() > this.towers[auxiliaryTower].getDiscCount()) {
+                    auxiliaryTower = i;
+                }
+            }
+        }
+        
+        // 根据圆盘分布判断阶段
+        if (auxiliaryTower !== -1 && this.towers[auxiliaryTower].getDiscCount() >= k) {
+            // 如果辅助塔已有k个或更多圆盘，说明处于阶段2或3
+            if (sourceTowerDiscs <= this.discCount - k) {
+                // 源塔剩余圆盘小于等于n-k，说明阶段1已完成
+                // 检查目标塔的圆盘数量来判断是阶段2还是阶段3
+                const targetTowerDiscs = this.towers[this.targetTower].getDiscCount();
+                if (targetTowerDiscs < this.discCount - k) {
+                    currentPhase = 2; // 还在移动大圆盘
+                } else {
+                    currentPhase = 3; // 开始从辅助塔移动小圆盘
+                }
+            }
+        }
+        
+        // 4. 根据当前阶段执行相应的移动策略
+        switch (currentPhase) {
+            case 1:
+                // 阶段1：将前k个圆盘移动到最佳辅助塔
+                return this.getPhase1Move(gameState, k, auxiliaryTower);
+            case 2:
+                // 阶段2：将大圆盘移动到目标塔
+                return this.getPhase2Move(gameState, k);
+            case 3:
+                // 阶段3：将辅助塔上的k个小圆盘移动到目标塔
+                return this.getPhase3Move(gameState, auxiliaryTower);
+        }
+        
+        // 如果无法确定特定的Frame-Stewart移动，使用基于最小圆盘的策略
+        return this.getMoveForSmallestDisc(gameState);
+    }
+    
+    // Frame-Stewart算法阶段1：将前k个小圆盘移动到辅助塔
+    getPhase1Move(gameState, k, auxiliaryTower) {
+        // 如果还没有确定辅助塔，选择一个空塔或顶部圆盘最大的塔
+        if (auxiliaryTower === -1) {
+            let bestTower = -1;
+            let bestTowerTopSize = 0;
+            
+            // 寻找最佳辅助塔（不包括源塔和目标塔）
+            for (let i = 1; i < this.towers.length - 1; i++) {
+                if (this.towers[i].isEmpty()) {
+                    auxiliaryTower = i;
+                    break;
+                } else {
+                    const topSize = this.towers[i].getTopDisc().size;
+                    if (topSize > bestTowerTopSize) {
+                        bestTowerTopSize = topSize;
+                        bestTower = i;
+                    }
+                }
+            }
+            
+            if (auxiliaryTower === -1) {
+                auxiliaryTower = bestTower !== -1 ? bestTower : 1;
+            }
+        }
+        
+        // 源塔上的小圆盘还没有全部移到辅助塔
+        const sourceTower = this.towers[0];
+        
+        // 如果源塔为空或只有大圆盘，转到阶段2
+        if (sourceTower.isEmpty() || 
+            (sourceTower.getDiscCount() === 1 && sourceTower.getTopDisc().size > k)) {
+            return this.getPhase2Move(gameState, k);
+        }
+        
+        // 尝试将小圆盘从源塔移动到辅助塔
+        const topDisc = sourceTower.getTopDisc();
+        if (topDisc && topDisc.size <= k) {
+            if (this.towers[auxiliaryTower].isEmpty() || 
+                topDisc.size < this.towers[auxiliaryTower].getTopDisc().size) {
+                return { from: 0, to: auxiliaryTower };
+            }
+        }
+        
+        // 如果无法直接从源塔移到辅助塔，寻找其他合法移动
+        // 优先考虑帮助将小圆盘搬运到辅助塔的移动
+        for (let i = 0; i < this.towers.length; i++) {
+            if (i === auxiliaryTower || this.towers[i].isEmpty()) continue;
+            
+            const disc = this.towers[i].getTopDisc();
+            if (disc && disc.size <= k) {
+                // 尝试移动到辅助塔
+                if (this.towers[auxiliaryTower].isEmpty() || 
+                    disc.size < this.towers[auxiliaryTower].getTopDisc().size) {
+                    return { from: i, to: auxiliaryTower };
+                }
+                
+                // 如果无法直接移到辅助塔，寻找任何可行的中转塔
+                for (let j = 0; j < this.towers.length; j++) {
+                    if (j === i || j === this.targetTower) continue;
+                    if (this.towers[j].isEmpty() || disc.size < this.towers[j].getTopDisc().size) {
+                        return { from: i, to: j };
+                    }
+                }
+            }
+        }
+        
+        // 如果没有找到与k相关的移动，尝试任何合法的移动
+        return this.getFallbackMove(gameState);
+    }
+    
+    // Frame-Stewart算法阶段2：将大圆盘移动到目标塔
+    getPhase2Move(gameState, k) {
+        // 寻找最大的尚未移动到目标塔的圆盘
+        let largestDiscTower = -1;
+        let largestDiscSize = 0;
+        
+        for (let i = 0; i < this.towers.length; i++) {
+            if (i === this.targetTower) continue;
+            
+            const tower = this.towers[i];
+            if (!tower.isEmpty()) {
+                // 检查这个塔是否有大圆盘（大于k）
+                for (let j = 0; j < tower.discs.length; j++) {
+                    const discSize = tower.discs[j].size;
+                    if (discSize > k && discSize > largestDiscSize) {
+                        largestDiscSize = discSize;
+                        largestDiscTower = i;
+                    }
+                }
+            }
+        }
+        
+        // 如果找到了大圆盘
+        if (largestDiscTower !== -1) {
+            const tower = this.towers[largestDiscTower];
+            
+            // 如果大圆盘在塔顶，尝试直接移动到目标塔
+            if (tower.getTopDisc().size === largestDiscSize) {
+                if (this.towers[this.targetTower].isEmpty() || 
+                    largestDiscSize < this.towers[this.targetTower].getTopDisc().size) {
+                    return { from: largestDiscTower, to: this.targetTower };
+                }
+            } else {
+                // 大圆盘上有其他圆盘，需要先移走它们
+                const topDisc = tower.getTopDisc();
+                
+                // 寻找可以接收这个顶部圆盘的塔
+                for (let i = 0; i < this.towers.length; i++) {
+                    if (i === largestDiscTower) continue;
+                    
+                    const destTower = this.towers[i];
+                    if (destTower.isEmpty() || topDisc.size < destTower.getTopDisc().size) {
+                        return { from: largestDiscTower, to: i };
+                    }
+                }
+            }
+        }
+        
+        // 如果所有大圆盘已经移到目标塔，进入阶段3
+        return this.getPhase3Move(gameState, -1);
+    }
+    
+    // Frame-Stewart算法阶段3：将辅助塔上的小圆盘移到目标塔
+    getPhase3Move(gameState, auxiliaryTower) {
+        // 如果没有指定辅助塔，找出包含小圆盘的塔
+        if (auxiliaryTower === -1) {
+            for (let i = 0; i < this.towers.length; i++) {
+                if (i !== this.targetTower && !this.towers[i].isEmpty()) {
+                    auxiliaryTower = i;
+                    break;
+                }
+            }
+        }
+        
+        // 如果找到了辅助塔，尝试从中移动圆盘到目标塔
+        if (auxiliaryTower !== -1 && !this.towers[auxiliaryTower].isEmpty()) {
+            const topDisc = this.towers[auxiliaryTower].getTopDisc();
+            
+            // 检查是否可以直接移动到目标塔
+            if (this.towers[this.targetTower].isEmpty() || 
+                topDisc.size < this.towers[this.targetTower].getTopDisc().size) {
+                return { from: auxiliaryTower, to: this.targetTower };
+            }
+            
+            // 否则，寻找任何可行的移动
+            for (let i = 0; i < this.towers.length; i++) {
+                if (i === auxiliaryTower) continue;
+                
+                if (this.towers[i].isEmpty() || 
+                    topDisc.size < this.towers[i].getTopDisc().size) {
+                    return { from: auxiliaryTower, to: i };
+                }
+            }
+        }
+        
+        // 如果找不到从辅助塔移动的路径，使用后备策略
+        return this.getMoveForSmallestDisc(gameState);
     }
     
     // 获取最小圆盘的移动方案
@@ -1295,5 +1517,140 @@ class TowerGame {
         }
         
         return null; // 如果没有找到合法移动（不应该发生）
+    }
+    
+    // 应用诅咒效果到塔和圆盘
+    applyCurses(curses) {
+        if (!curses || !Array.isArray(curses) || curses.length === 0) return;
+        
+        console.log("正在应用诅咒效果:", curses);
+        
+        // 处理各种诅咒效果
+        curses.forEach(curse => {
+            switch(curse) {
+                case "迷雾诅咒":
+                    // 迷雾诅咒在game.js中的效果系统中处理
+                    break;
+                    
+                case "迷失诅咒":
+                    // 塔的位置会轻微随机移动
+                    this.applyWanderingTowers();
+                    break;
+                    
+                case "迟缓诅咒":
+                    // 移动动画变慢
+                    document.documentElement.style.setProperty('--disc-move-speed', '1s');
+                    document.documentElement.style.setProperty('--disc-transition', 'all 1s cubic-bezier(0.34, 1.56, 0.64, 1)');
+                    break;
+                    
+                case "晕眩诅咒":
+                    // 圆盘颜色混乱
+                    this.applyDizzinessToDiscs();
+                    break;
+                    
+                default:
+                    console.warn("未知的诅咒效果:", curse);
+                    break;
+            }
+        });
+    }
+    
+    // 应用祝福效果到塔和圆盘
+    applyBlessings(blessings) {
+        if (!blessings || !Array.isArray(blessings) || blessings.length === 0) return;
+        
+        console.log("正在应用祝福效果:", blessings);
+        
+        // 处理各种祝福效果
+        blessings.forEach(blessing => {
+            switch(blessing) {
+                case "时间祝福":
+                    // 时间祝福在game.js中的效果系统中处理
+                    this.hasBlessingTimeBonus = true;
+                    break;
+                    
+                case "清晰祝福":
+                    // 提示概率增加在game.js中的效果系统中处理
+                    this.hintChanceBonus = 0.3;
+                    break;
+                    
+                case "幸运祝福":
+                    // 道具掉落率提高在game.js中的效果系统中处理
+                    this.itemChanceBonus = 0.2;
+                    break;
+                    
+                case "重置祝福":
+                    // 添加重置按钮
+                    this.addResetButton();
+                    break;
+                    
+                default:
+                    console.warn("未知的祝福效果:", blessing);
+                    break;
+            }
+        });
+    }
+    
+    // 应用迷失诅咒效果 - 塔座微微摇晃
+    applyWanderingTowers() {
+        for (let i = 0; i < this.towers.length; i++) {
+            const tower = this.towers[i].element;
+            tower.classList.add('wobble-tower');
+        }
+    }
+    
+    // 应用晕眩诅咙 - 圆盘颜色混乱
+    applyDizzinessToDiscs() {
+        this.discs.forEach(disc => {
+            if (Math.random() < 0.7) { // 70%的圆盘会变色
+                disc.applyDizziness();
+            }
+        });
+    }
+    
+    // 为重置祝福添加重置按钮
+    addResetButton() {
+        // 检查是否已存在重置按钮
+        if (document.getElementById('reset-button')) return;
+        
+        const resetButton = document.createElement('button');
+        resetButton.id = 'reset-button';
+        resetButton.className = 'game-button blessing-button';
+        resetButton.textContent = '重置一次';
+        resetButton.title = '重置祝福: 点击可重新布局圆盘(仅一次)';
+        
+        // 点击时重置塔和圆盘，但不重置关卡
+        resetButton.addEventListener('click', () => {
+            if (!this.gameStarted || this.levelCompleted) return;
+            
+            // 保存当前配置
+            const currentConfig = { ...this.specialConfig };
+            const discCount = this.discCount;
+            const movesGoal = this.movesGoal;
+            const towerCount = this.towers.length;
+            
+            // 重置布局
+            this.reset();
+            this.setLevel(discCount, movesGoal, towerCount, currentConfig);
+            
+            // 使用后移除按钮
+            resetButton.disabled = true;
+            resetButton.textContent = '已使用';
+            
+            // 显示消息
+            const message = document.getElementById('message');
+            message.textContent = '塔已重置!';
+            message.classList.add('blessing-message');
+            setTimeout(() => {
+                message.classList.remove('blessing-message');
+                setTimeout(() => message.textContent = '', 1000);
+            }, 2000);
+        });
+        
+        // 添加到游戏控制区域
+        const controlsDiv = document.querySelector('.game-controls');
+        if (controlsDiv) {
+            controlsDiv.appendChild(resetButton);
+        }
     }
 }

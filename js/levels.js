@@ -10,6 +10,7 @@ class LevelSystem {
         this.baseMoveLimit = 7; // 初始移动限制
         this.baseTowerCount = 3; // 初始塔座数量
         this.currentConfig = {}; // 当前关卡配置
+        this.configCache = {}; // 关卡配置缓存
         
         // 检查玩家是否首次访问 - 修复：使用专用函数进行检测，并将结果保存为实例属性
         this.isFirstVisit = isFirstVisit();
@@ -27,8 +28,13 @@ class LevelSystem {
             totalMoves: 0,
             totalLevels: 0,
             bestPerformance: 0,
-            preferredTowerCount: 3  // 游戏会学习玩家偏好的塔数
+            preferredTowerCount: 3,  // 游戏会学习玩家偏好的塔数
+            levelCompletionStreak: 0, // 连续完成关卡的数量
+            visitedLevels: new Set()  // 记录已访问的关卡
         };
+        
+        // 初始化游戏管理器引用 - 将在游戏初始化时由外部设置
+        this.gameManager = null;
         
         // 调试信息 - 帮助开发者跟踪关卡变化
         this.debugEnabled = true;
@@ -781,90 +787,172 @@ class LevelSystem {
         return config;
     }
 
-    // 为前三关生成特定变化
-    generateEarlyLevelVariation(config, level) {
-        if (this.debugEnabled) {
-            console.log(`为前三关(${level})生成特殊变化`);
+    // 获取关卡基础配置
+    getBaseLevelConfig(level) {
+        // 教学关卡配置
+        if (level <= 3 && this.isFirstVisit) {
+            if (this.debugEnabled) {
+                console.log(`获取教学关卡 ${level} 的基础配置`);
+            }
+            
+            // 返回深拷贝的教学关卡配置
+            return JSON.parse(JSON.stringify(this.tutorialLevels[level - 1]));
         }
         
-        // 圆盘数量变化 - 保持在易于理解的范围内
-        // 对于第1关：3-4个圆盘
-        // 对于第2关：3-5个圆盘
-        // 对于第3关：4-5个圆盘
-        let discRange;
-        switch(level) {
-            case 1:
-                discRange = [3, 4];
-                break;
-            case 2:
-                discRange = [3, 5];
-                break;
-            case 3:
-                discRange = [4, 5];
-                break;
-            default:
-                discRange = [3, 4];
-        }
+        // 常规关卡配置
+        // 设置临时当前关卡以便使用现有计算函数
+        const originalLevel = this.currentLevel;
+        this.currentLevel = level;
         
-        // 随机选择圆盘数量
-        config.discCount = discRange[0] + Math.floor(this.seededRandom() * (discRange[1] - discRange[0] + 1));
+        // 计算各项参数
+        const discCount = this.calculateDiscCount();
+        const towerCount = this.calculateTowerCount();
+        const timeLimit = this.calculateTimeLimit(discCount, towerCount);
+        const moveLimit = this.calculateMoveLimit(discCount, towerCount);
         
-        // 塔数变化 - 最多4个塔，保持游戏简单
-        // 第1关：90%是3塔，10%是4塔
-        // 第2关和第3关：80%是3塔，20%是4塔
-        let towerProb = (level === 1) ? 0.1 : 0.2;
+        // 恢复原始关卡
+        this.currentLevel = originalLevel;
         
-        // 随机决定塔数
-        if (this.seededRandom() < towerProb) {
-            config.towerCount = 4;
-        } else {
-            config.towerCount = 3; // 默认3塔
-        }
-        
-        // 计算最优移动次数
-        config.optimalMoves = (config.towerCount === 3) ? 
-            Math.pow(2, config.discCount) - 1 : 
-            Math.floor((Math.pow(2, config.discCount) - 1) * 0.8);
-        
-        // 移动限制 - 给予宽松的操作空间
-        config.moveLimit = Math.ceil(config.optimalMoves * 2.0);
-        
-        // 时间限制 - 前三关给予充足的时间
-        const towerFactor = 1 + (config.towerCount - 3) * 0.2; // 4塔比3塔多20%时间
-        config.timeLimit = Math.ceil((config.optimalMoves * 2.5 * towerFactor) + 40);
-        
-        // 随机添加简单的小变化
-        const variations = [];
-        
-        // 40%概率添加圆盘颜色强化
-        if (this.seededRandom() < 0.4) {
-            config.colorEnhancement = true;
-            variations.push("颜色强化");
-        }
-        
-        // 30%概率添加简单的视觉效果
-        if (this.seededRandom() < 0.3) {
-            config.visualEffect = "gentle"; // 温和的视觉效果
-            variations.push("圆盘光效");
-        }
-        
-        // 20%概率添加初始提示
-        if (this.seededRandom() < 0.2) {
-            config.initialHints = Math.min(3, Math.floor(config.discCount / 2));
-            variations.push(`${config.initialHints}次提示`);
-        }
-        
-        // 设置特殊事件名称
-        if (variations.length > 0) {
-            config.specialEventName = `新手友好: ${variations.join(", ")}`;
-        } else {
-            config.specialEventName = `经典挑战: ${config.discCount}圆盘-${config.towerCount}塔`;
-        }
+        // 创建基础配置
+        const config = {
+            level,
+            discCount,
+            towerCount,
+            timeLimit,
+            moveLimit,
+            optimalMoves: towerCount === 3 ? 
+                Math.pow(2, discCount) - 1 : 
+                Math.floor((Math.pow(2, discCount) - 1) * 0.8)
+        };
         
         if (this.debugEnabled) {
-            console.log(`前三关生成结果:`, config);
+            console.log(`生成关卡 ${level} 基础配置:`, config);
         }
         
         return config;
+    }
+
+    // 计算表现修饰符
+    calculatePerformanceModifier() {
+        // 基于连续完成关卡的数量调整表现修饰符
+        if (!this.playerStats) return 0;
+        
+        // 最近表现调整: 连续完成关卡获得正向修饰，失败则降低
+        const streakFactor = Math.min(0.15, this.playerStats.levelCompletionStreak * 0.03);
+        
+        // 基础修饰符来源于之前关卡的累积表现
+        const baseModifier = this.performanceModifier || 0;
+        
+        // 组合修饰符，但确保在合理范围内 (-0.2 到 0.2)
+        const combinedModifier = Math.max(-0.2, Math.min(0.2, baseModifier + streakFactor));
+        
+        if (this.debugEnabled) {
+            console.log(`计算表现修饰符: 基础=${baseModifier.toFixed(2)}, 连胜=${streakFactor.toFixed(2)}, 最终=${combinedModifier.toFixed(2)}`);
+        }
+        
+        return combinedModifier;
+    }
+    
+    // 设置游戏管理器引用
+    setGameManager(gameManager) {
+        this.gameManager = gameManager;
+    }
+    
+    // 更新连胜次数 - 当玩家成功完成关卡时
+    updateLevelCompletionStreak(success) {
+        if (!this.playerStats) return;
+        
+        if (success) {
+            this.playerStats.levelCompletionStreak++;
+            
+            // 记录已访问的关卡
+            if (this.currentLevel > 0) {
+                this.playerStats.visitedLevels.add(this.currentLevel);
+            }
+        } else {
+            this.playerStats.levelCompletionStreak = 0;
+        }
+        
+        if (this.debugEnabled) {
+            console.log(`更新关卡连胜次数: ${this.playerStats.levelCompletionStreak} (${success ? '成功' : '失败'})`);
+        }
+    }
+    
+    // 检查关卡是否已被访问
+    hasVisitedLevel(level) {
+        if (!this.playerStats || !this.playerStats.visitedLevels) return false;
+        return this.playerStats.visitedLevels.has(level);
+    }
+    
+    // 保存游戏进度到本地存储
+    saveProgress() {
+        if (!this.playerStats) return false;
+        
+        const progressData = {
+            totalMoves: this.playerStats.totalMoves,
+            totalLevels: this.playerStats.totalLevels,
+            bestPerformance: this.playerStats.bestPerformance,
+            preferredTowerCount: this.playerStats.preferredTowerCount,
+            levelCompletionStreak: this.playerStats.levelCompletionStreak,
+            visitedLevels: Array.from(this.playerStats.visitedLevels),
+            isFirstVisit: false, // 保存后就不再是首次访问
+            currentLevel: this.currentLevel,
+            performanceModifier: this.performanceModifier
+        };
+        
+        try {
+            saveToLocalStorage('hanoiRogueLikeProgress', progressData);
+            
+            if (this.debugEnabled) {
+                console.log('游戏进度已保存', progressData);
+            }
+            
+            return true;
+        } catch (e) {
+            console.error('保存游戏进度失败:', e);
+            return false;
+        }
+    }
+    
+    // 从本地存储加载游戏进度
+    loadProgress() {
+        try {
+            const progressData = getFromLocalStorage('hanoiRogueLikeProgress');
+            
+            if (progressData) {
+                this.playerStats.totalMoves = progressData.totalMoves || 0;
+                this.playerStats.totalLevels = progressData.totalLevels || 0;
+                this.playerStats.bestPerformance = progressData.bestPerformance || 0;
+                this.playerStats.preferredTowerCount = progressData.preferredTowerCount || 3;
+                this.playerStats.levelCompletionStreak = progressData.levelCompletionStreak || 0;
+                
+                // 恢复访问过的关卡集合
+                this.playerStats.visitedLevels = new Set(progressData.visitedLevels || []);
+                
+                // 恢复首次访问状态
+                this.isFirstVisit = progressData.isFirstVisit !== undefined ? progressData.isFirstVisit : this.isFirstVisit;
+                
+                // 恢复当前关卡和表现修饰符
+                if (progressData.currentLevel > 0) {
+                    this.currentLevel = progressData.currentLevel;
+                }
+                
+                if (progressData.performanceModifier !== undefined) {
+                    this.performanceModifier = progressData.performanceModifier;
+                }
+                
+                if (this.debugEnabled) {
+                    console.log('加载游戏进度成功', progressData);
+                    console.log('已访问关卡:', Array.from(this.playerStats.visitedLevels));
+                }
+                
+                return true;
+            }
+            
+            return false;
+        } catch (e) {
+            console.error('加载游戏进度失败:', e);
+            return false;
+        }
     }
 }
