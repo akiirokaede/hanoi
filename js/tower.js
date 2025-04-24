@@ -58,6 +58,12 @@ class Tower {
             // 添加金色闪光效果
             const shimmer = document.createElement('div');
             shimmer.className = 'shimmer';
+            // 确保shimmer元素与base元素尺寸一致
+            shimmer.style.position = 'absolute';
+            shimmer.style.top = '0';
+            shimmer.style.left = '0';
+            shimmer.style.width = '100%';
+            shimmer.style.height = '100%';
             this.base.appendChild(shimmer);
         }
     }
@@ -150,6 +156,12 @@ class Disc {
         let sizeMultiplier = 1;
         if (specialConfig.specialDisc && size === totalDiscs) {
             sizeMultiplier = specialConfig.discSizeMultiplier || 1.2;
+            this.element.classList.add('special-disc'); // 添加特殊圆盘类以应用视觉效果
+            
+            // 创建光环效果
+            const aura = document.createElement('div');
+            aura.className = 'disc-aura';
+            this.element.appendChild(aura);
         }
         
         // 设置圆盘宽度 - 保持原有的彩虹效果
@@ -198,9 +210,13 @@ class Disc {
         
         // 应用隐形圆盘效果
         if (specialConfig.invisibleDiscs && Math.random() < 0.4) { // 40%的圆盘会变成半透明
-            this.element.style.opacity = '0.3';
+            this.element.classList.add('invisible-disc');
             this.isInvisible = true;
         }
+        
+        // 为诅咒效果准备数据属性
+        this.element.dataset.discSize = size;
+        this.element.dataset.totalDiscs = totalDiscs;
     }
 
     // 设置圆盘位置 - 考虑动态高度
@@ -225,7 +241,33 @@ class Disc {
         this.element.style.position = 'absolute';
         this.element.style.bottom = `${finalBottom}px`; // 从底部算起的距离
         this.element.style.left = '50%'; // 水平居中
-        this.element.style.transform = 'translateX(-50%)'; // 修复：使用单引号而不是反引号
+        this.element.style.transform = 'translateX(-50%)'; // 使用单引号而不是反引号
+    }
+    
+    // 应用晕眩诅咒效果
+    applyDizziness() {
+        this.element.classList.add('dizzy');
+    }
+    
+    // 移除晕眩诅咒效果
+    removeDizziness() {
+        this.element.classList.remove('dizzy');
+    }
+    
+    // 临时闪烁隐形圆盘（使其可见一小段时间）
+    temporaryReveal() {
+        if (this.isInvisible) {
+            this.element.style.opacity = '0.8'; // 暂时提高不透明度
+            
+            // 添加额外的视觉效果
+            this.element.style.boxShadow = '0 0 15px rgba(255, 255, 255, 0.8)';
+            
+            // 2秒后恢复
+            setTimeout(() => {
+                this.element.style.opacity = '0.3';
+                this.element.style.boxShadow = '0 3px 6px rgba(0, 0, 0, 0.3), 0 3px 6px rgba(0, 0, 0, 0.3)';
+            }, 2000);
+        }
     }
 }
 
@@ -279,6 +321,15 @@ class TowerGame {
 
     // 设置当前关卡
     setLevel(discCount, movesGoal, towerCount = 3, specialConfig = {}) {
+        // 日志调试: 验证传入的圆盘数量是否正确
+        console.log(`TowerGame.setLevel 被调用 - 圆盘数量: ${discCount}, 移动目标: ${movesGoal}, 塔数: ${towerCount}`);
+        
+        // 调试教学关卡配置
+        if (specialConfig && specialConfig.isTutorial) {
+            console.log(`初始化教学关卡: 关卡 ${specialConfig.level}, 圆盘 ${discCount}`);
+            console.log(`教学关卡完整配置:`, specialConfig);
+        }
+        
         this.reset();
         this.discCount = discCount;
         this.movesGoal = movesGoal;
@@ -347,6 +398,9 @@ class TowerGame {
         
         this.gameStarted = true;
         this.levelCompleted = false;
+        
+        // 日志调试: 确认塔和圆盘创建完成
+        console.log(`关卡设置完成 - 创建了 ${this.discs.length} 个圆盘，塔数: ${this.towers.length}`);
     }
 
     // 动态创建塔座 - 更新方法
@@ -403,157 +457,157 @@ class TowerGame {
 
     // 应用特殊布局
     applySpecialLayout(config) {
-        // 自定义布局元素的位置
-        // 例如：三角形、圆形等不同的塔座排列
-        const layoutType = config.layoutType || 'circular';
-        const gameArea = document.querySelector('.game-area');
+        // 现有代码...
         
-        if (layoutType === 'circular') {
-            gameArea.classList.add('circular-layout');
-        } else if (layoutType === 'triangle') {
-            gameArea.classList.add('triangle-layout');
-        } else {
-            // 其他类型的布局...
-        }
-    }
-
-    // 应用诅咒效果
-    applyCurses(curses) {
-        const gameArea = document.querySelector('.game-area');
-        
-        curses.forEach(curse => {
-            switch (curse) {
-                case "迷雾诅咒":
-                    // 添加迷雾效果到游戏区域
-                    const fogOverlay = document.createElement('div');
-                    fogOverlay.className = 'fog-overlay';
-                    gameArea.appendChild(fogOverlay);
-                    
-                    // 部分UI元素有概率被遮挡
-                    document.querySelectorAll('.ui-element').forEach(elem => {
-                        if (Math.random() < 0.3) { // 30%概率被遮挡
-                            elem.classList.add('foggy');
-                        }
-                    });
-                    break;
-                    
-                case "迷失诅咒":
-                    // 塔的位置会轻微随机移动
-                    this.towers.forEach(tower => {
-                        // 添加随机微移动动画
-                        tower.element.classList.add('wobble-tower');
-                    });
-                    break;
-                    
-                case "迟缓诅咒":
-                    // 移动动画变慢
-                    document.documentElement.style.setProperty('--disc-move-speed', '1.5s');
-                    document.documentElement.style.setProperty('--disc-transition', 'all 1.5s cubic-bezier(0.34, 1.56, 0.64, 1)');
-                    break;
-                    
-                case "晕眩诅咒":
-                    // 圆盘颜色混乱
-                    this.discs.forEach(disc => {
-                        const randomHue = Math.floor(Math.random() * 360);
-                        disc.element.style.backgroundColor = `hsl(${randomHue}, 80%, 60%)`;
-                    });
-                    break;
+        // 新增：处理前三关的特殊事件
+        if (config.colorEnhancement) {
+            // 增强圆盘颜色对比度
+            for (const disc of this.discs) {
+                disc.enhanceColor();
             }
-        });
+            console.log("应用颜色强化效果");
+        }
         
-        // 显示诅咒信息
-        if (curses.length > 0) {
-            const message = document.getElementById('message');
-            message.textContent = `诅咒生效：${curses.join('，')}`;
-            message.classList.add('curse-message');
-            setTimeout(() => {
-                message.classList.remove('curse-message');
-                setTimeout(() => message.textContent = '', 1000);
-            }, 3000);
+        if (config.initialHints && config.initialHints > 0) {
+            // 设置初始提示次数
+            this.availableHints = config.initialHints;
+            this.showHintMessage();
+            console.log(`设置初始提示次数: ${config.initialHints}`);
         }
     }
-
-    // 应用祝福效果
-    applyBlessings(blessings) {
-        blessings.forEach(blessing => {
-            switch (blessing) {
-                case "时间祝福":
-                    // 每次移动增加1秒时间，实现在game.js中
-                    this.hasBlessingTimeBonus = true;
-                    break;
-                    
-                case "清晰祝福":
-                    // 显示提示概率增加
-                    this.hintChanceBonus = 0.3; // 提示概率增加30%
-                    break;
-                    
-                case "幸运祝福":
-                    // 道具掉落率提高，在checkItemTrigger方法中实现
-                    this.itemChanceBonus = 0.2; // 道具掉率提高20%
-                    break;
-                    
-                case "重置祝福":
-                    // 添加重置按钮
-                    const resetButton = document.createElement('button');
-                    resetButton.textContent = '重置当前布局';
-                    resetButton.className = 'blessing-reset-button';
-                    resetButton.addEventListener('click', () => {
-                        // 保存当前移动次数
-                        const currentMoves = this.moveCount;
-                        
-                        // 重置布局
-                        this.reset();
-                        this.setLevel(
-                            this.levelGoals.discCount,
-                            this.levelGoals.movesGoal,
-                            this.levelGoals.towerCount,
-                            this.specialConfig
-                        );
-                        
-                        // 恢复移动次数
-                        this.moveCount = currentMoves;
-                        this.updateMoves();
-                        
-                        // 禁用按钮（一次性使用）
-                        resetButton.disabled = true;
-                        resetButton.textContent = '已使用重置';
-                        setTimeout(() => {
-                            if (resetButton.parentNode) {
-                                resetButton.parentNode.removeChild(resetButton);
-                            }
-                        }, 3000);
-                    });
-                    
-                    // 修复：将按钮添加到game-footer而不是不存在的game-controls
-                    const gameFooter = document.querySelector('.game-footer');
-                    if (gameFooter) {
-                        gameFooter.appendChild(resetButton);
-                    } else {
-                        // 后备方案：如果找不到game-footer，尝试添加到game-area
-                        const gameArea = document.querySelector('.game-area');
-                        if (gameArea) {
-                            resetButton.style.position = 'absolute';
-                            resetButton.style.bottom = '10px';
-                            resetButton.style.left = '50%';
-                            resetButton.style.transform = 'translateX(-50%)';
-                            resetButton.style.zIndex = '10';
-                            gameArea.appendChild(resetButton);
-                        }
+    
+    // 显示提示信息
+    showHintMessage() {
+        if (this.availableHints > 0) {
+            const message = document.getElementById('message');
+            message.textContent = `可用提示: ${this.availableHints} (点击"提示"按钮)`;
+            message.classList.add('hint-message');
+            setTimeout(() => {
+                message.classList.remove('hint-message');
+                setTimeout(() => {
+                    if (message.textContent.includes('可用提示')) {
+                        message.textContent = '';
                     }
-                    break;
+                }, 1000);
+            }, 3000);
+            
+            // 如果没有提示按钮，创建一个
+            if (!document.getElementById('hint-button')) {
+                const hintButton = document.createElement('button');
+                hintButton.id = 'hint-button';
+                hintButton.className = 'game-button';
+                hintButton.textContent = '提示';
+                hintButton.onclick = () => this.showHint();
+                
+                const controlsDiv = document.querySelector('.game-controls');
+                if (controlsDiv) {
+                    controlsDiv.appendChild(hintButton);
+                }
             }
-        });
-        
-        // 显示祝福信息
-        if (blessings.length > 0) {
+        }
+    }
+    
+    // 显示提示
+    showHint() {
+        if (this.availableHints <= 0) {
             const message = document.getElementById('message');
-            message.textContent = `祝福降临：${blessings.join('，')}`;
-            message.classList.add('blessing-message');
+            message.textContent = '没有可用的提示了!';
+            message.classList.add('error-message');
             setTimeout(() => {
-                message.classList.remove('blessing-message');
+                message.classList.remove('error-message');
                 setTimeout(() => message.textContent = '', 1000);
+            }, 2000);
+            return;
+        }
+        
+        this.availableHints--;
+        
+        // 计算最优解的下一步移动
+        const hint = this.calculateOptimalNextMove();
+        if (hint) {
+            const {fromTower, toTower} = hint;
+            
+            // 高亮显示提示的塔座
+            this.towers[fromTower].highlightTower();
+            this.towers[toTower].highlightTower('target');
+            
+            const message = document.getElementById('message');
+            message.textContent = `提示: 将圆盘从塔${fromTower + 1}移动到塔${toTower + 1}`;
+            message.classList.add('hint-message');
+            
+            // 更新提示按钮文本
+            const hintButton = document.getElementById('hint-button');
+            if (hintButton) {
+                hintButton.textContent = `提示 (${this.availableHints})`;
+            }
+            
+            // 3秒后取消高亮和消息
+            setTimeout(() => {
+                this.towers[fromTower].unhighlightTower();
+                this.towers[toTower].unhighlightTower();
+                message.classList.remove('hint-message');
+                setTimeout(() => {
+                    if (message.textContent.includes('提示:')) {
+                        message.textContent = '';
+                    }
+                }, 1000);
             }, 3000);
         }
+    }
+    
+    // 计算最优解的下一步移动
+    calculateOptimalNextMove() {
+        // 这是一个简化版的计算，实际最优解需要实现汉诺塔算法
+        // 找出可移动的最小圆盘
+        let fromTower = -1;
+        let smallestDisc = null;
+        
+        // 找到最小圆盘所在的塔
+        for (let i = 0; i < this.towers.length; i++) {
+            const topDisc = this.towers[i].getTopDisc();
+            if (topDisc) {
+                if (!smallestDisc || topDisc.size < smallestDisc.size) {
+                    smallestDisc = topDisc;
+                    fromTower = i;
+                }
+            }
+        }
+        
+        if (fromTower === -1 || !smallestDisc) return null;
+        
+        // 确定目标塔 - 简单策略：
+        // 如果是偶数圆盘，尝试向右移动；如果是奇数，尝试向左移动
+        // 这不是完美的汉诺塔解法，但对于提示已足够
+        let toTower;
+        if (this.discCount % 2 === 0) {
+            // 尝试向右移动（或环绕到第一个塔）
+            toTower = (fromTower + 1) % this.towers.length;
+            // 如果右边塔不能放置，尝试另一个方向
+            if (!this.towers[toTower].canPlaceDisc(smallestDisc)) {
+                toTower = (fromTower + this.towers.length - 1) % this.towers.length;
+            }
+        } else {
+            // 尝试向左移动（或环绕到最后一个塔）
+            toTower = (fromTower + this.towers.length - 1) % this.towers.length;
+            // 如果左边塔不能放置，尝试另一个方向
+            if (!this.towers[toTower].canPlaceDisc(smallestDisc)) {
+                toTower = (fromTower + 1) % this.towers.length;
+            }
+        }
+        
+        // 检查目标塔是否可以放置该圆盘
+        if (this.towers[toTower].canPlaceDisc(smallestDisc)) {
+            return { fromTower, toTower };
+        }
+        
+        // 如果以上策略都不可行，找出任何可以放置的塔
+        for (let i = 0; i < this.towers.length; i++) {
+            if (i !== fromTower && this.towers[i].canPlaceDisc(smallestDisc)) {
+                return { fromTower, toTower: i };
+            }
+        }
+        
+        return null; // 无法找到合法移动
     }
 
     // 移动圆盘
@@ -1183,7 +1237,7 @@ class TowerGame {
             // 偶数圆盘：最小圆盘顺时针移动
             direction = 1;
         } else {
-            // 奇数圆盘：最小圆盘逆时针移动
+            // 圆盘数为奇数：最小圆盘逆时针移动
             direction = this.towers.length - 1;
         }
         

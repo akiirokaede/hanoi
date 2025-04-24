@@ -11,6 +11,11 @@ class LevelSystem {
         this.baseTowerCount = 3; // 初始塔座数量
         this.currentConfig = {}; // 当前关卡配置
         
+        // 检查玩家是否首次访问 - 修复：使用专用函数进行检测，并将结果保存为实例属性
+        this.isFirstVisit = isFirstVisit();
+        
+        console.log("首次访问检测结果:", this.isFirstVisit);
+        
         // 游戏进度修饰符（受到玩家表现影响）
         this.performanceModifier = 0; // 范围 -0.2 到 0.2，影响难度动态调整
         
@@ -27,6 +32,41 @@ class LevelSystem {
         
         // 调试信息 - 帮助开发者跟踪关卡变化
         this.debugEnabled = true;
+        
+        // 教学关卡配置
+        this.tutorialLevels = [
+            {
+                level: 1,
+                discCount: 3,
+                towerCount: 3,
+                timeLimit: 120,
+                moveLimit: 15,
+                optimalMoves: 7,
+                specialEventName: "教学关卡 - 基础规则",
+                isTutorial: true
+            },
+            {
+                level: 2,
+                discCount: 4,
+                towerCount: 3,
+                timeLimit: 180,
+                moveLimit: 25,
+                optimalMoves: 15,
+                specialEventName: "教学关卡 - 圆盘增多",
+                isTutorial: true
+            },
+            {
+                level: 3,
+                discCount: 4,
+                towerCount: 3,
+                timeLimit: 150,
+                moveLimit: 20,
+                optimalMoves: 15,
+                specialEventName: "教学关卡 - 挑战极限",
+                isTutorial: true,
+                treasureLevel: true  // 最后一个教学关卡给予丰厚奖励
+            }
+        ];
         
         // 特殊事件表 - 启发自《Binding of Isaac》和《Hades》等游戏的随机事件系统
         this.specialEvents = [
@@ -108,6 +148,28 @@ class LevelSystem {
     generateNextLevel() {
         this.currentLevel++;
         
+        // 首次访问且是前3关时，使用教学关卡
+        if (this.isFirstVisit && this.currentLevel <= 3) {
+            console.log(`加载教学关卡 ${this.currentLevel}`);
+            // 直接使用预定义的教学关卡
+            this.currentConfig = {...this.tutorialLevels[this.currentLevel - 1]};
+            
+            // 输出详细调试信息
+            if (this.debugEnabled) {
+                console.log(`教学关卡${this.currentLevel}详情:`, 
+                            `圆盘数=${this.currentConfig.discCount}`,
+                            `塔数=${this.currentConfig.towerCount}`,
+                            `时间限制=${this.currentConfig.timeLimit}秒`,
+                            `移动限制=${this.currentConfig.moveLimit}步`);
+                console.log("教学关卡原始配置:", this.tutorialLevels[this.currentLevel - 1]);
+                console.log("当前使用的配置:", this.currentConfig);
+            }
+            
+            return this.currentConfig;
+        }
+        
+        console.log(`生成常规关卡 ${this.currentLevel}`);
+        // 常规roguelike关卡生成逻辑
         // 计算当前关卡的圆盘数量
         let discCount = this.calculateDiscCount();
         
@@ -165,7 +227,54 @@ class LevelSystem {
             return config;
         }
         
-        // 尝试应用特殊事件
+        // 添加：为前三关创建友好的特殊事件（仅非首次访问玩家）
+        if (this.currentLevel <= 3 && !this.isFirstVisit) {
+            // 前三关有30%的几率触发简单的特殊事件
+            if (this.seededRandom() < 0.3) {
+                const earlyGameEvents = [
+                    {
+                        name: "颜色强化",
+                        effect: (config) => {
+                            // 增强圆盘颜色对比度，更容易区分
+                            config.colorEnhancement = true;
+                            return config;
+                        }
+                    },
+                    {
+                        name: "幸运开局",
+                        effect: (config) => {
+                            // 移动限制稍微增加
+                            config.moveLimit = Math.ceil(config.moveLimit * 1.15);
+                            return config;
+                        }
+                    },
+                    {
+                        name: "初学者辅助",
+                        effect: (config) => {
+                            // 提供最初几步的提示
+                            config.initialHints = Math.min(3, Math.floor(config.discCount / 2));
+                            return config;
+                        }
+                    }
+                ];
+                
+                // 随机选择一个友好事件
+                const eventIndex = Math.floor(this.seededRandom() * earlyGameEvents.length);
+                const selectedEvent = earlyGameEvents[eventIndex];
+                
+                // 应用事件效果
+                config = selectedEvent.effect(config);
+                config.specialEventName = selectedEvent.name;
+                
+                if (this.debugEnabled) {
+                    console.log(`前三关友好事件已触发: ${selectedEvent.name}`);
+                }
+                
+                return config;
+            }
+        }
+        
+        // 常规关卡的特殊事件处理
         for (const event of this.specialEvents) {
             // 关卡等级检查
             if (this.currentLevel < event.minLevel) continue;
@@ -200,8 +309,17 @@ class LevelSystem {
         }
         
         // 加入随机波动 (-1, 0, +1)
-        // 但确保不会低于基础圆盘数或超过最大限制
-        if (this.currentLevel > 3) {
+        // 修改：前三关也添加随机波动，但控制在友好范围内
+        if (this.currentLevel <= 3) {
+            // 前三关的随机波动：只允许+0或+1，不会减少难度
+            const rand = Math.floor(this.seededRandom() * 2); // 0或1
+            baseCount += rand;
+            
+            // 确保第一关不会太难（最多4个圆盘）
+            if (this.currentLevel === 1) {
+                baseCount = Math.min(4, baseCount);
+            }
+        } else {
             // 基于序列的伪随机数
             const rand = Math.floor(this.seededRandom() * 3) - 1; // -1, 0, or 1
             baseCount += rand;
@@ -225,12 +343,44 @@ class LevelSystem {
 
     // 计算塔座数量 - 包含更多随机元素
     calculateTowerCount() {
-        // 前3关固定为经典的3塔配置（教程关卡）
-        if (this.currentLevel <= 3) {
+        // 非首次访问玩家的前三关也使用动态塔数
+        
+        // 只有首次访问的前3关固定为经典的3塔配置
+        if (this.currentLevel <= 3 && this.isFirstVisit) {
             return this.baseTowerCount;
         }
         
-        // 基础概率表 - 每个元素代表对应塔数量的概率权重
+        // 对于非首次访问的前三关，增加塔数变化但保持较低难度
+        if (this.currentLevel <= 3 && !this.isFirstVisit) {
+            // 前三关特殊概率表 - 主要是3塔和4塔，不会出现更多塔
+            const earlyGameProb = [0, 0, 0, 75, 25, 0, 0]; // 75%概率3塔，25%概率4塔
+            
+            // 第一关有更高概率是3塔，确保新手友好
+            if (this.currentLevel === 1) {
+                earlyGameProb[3] = 90;
+                earlyGameProb[4] = 10;
+            }
+            
+            // 随机选择塔数量
+            let random = this.seededRandom() * 100;
+            let towerCount = 3; // 默认为3塔
+            
+            for (let i = 0; i < earlyGameProb.length; i++) {
+                if (random < earlyGameProb[i]) {
+                    towerCount = i;
+                    break;
+                }
+                random -= earlyGameProb[i];
+            }
+            
+            if (this.debugEnabled) {
+                console.log(`前三关非首次访问塔数生成: 第${this.currentLevel}关, 塔数=${towerCount}`);
+            }
+            
+            return towerCount;
+        }
+        
+        // 中后期关卡的基础概率表 - 每个元素代表对应塔数量的概率权重
         let probabilities = [0, 0, 0, 65, 25, 10, 0]; // 索引对应塔数量: [0, 1, 2, 3, 4, 5, 6]
         
         // 根据关卡层数调整概率
@@ -579,6 +729,9 @@ class LevelSystem {
     reset() {
         this.currentLevel = 0;
         this.currentConfig = {};
+        
+        // 重置时不重置首次访问状态，保持其原始值
+        // 这样即使重置了游戏，教学关卡的显示逻辑仍然正确
     }
 
     // 获取当前关卡数据
@@ -589,5 +742,129 @@ class LevelSystem {
     // 获取当前关卡数
     getCurrentLevel() {
         return this.currentLevel;
+    }
+
+    // 获取关卡配置
+    getLevelConfig(level) {
+        // 检查缓存
+        if (this.configCache[level]) return this.configCache[level];
+
+        // 重置特殊事件影响因子
+        this.levelCompletionStreak = this.gameManager.levelCompletionStreak;
+        this.performanceModifier = this.calculatePerformanceModifier();
+        
+        // 首次访问检测
+        this.isFirstVisit = !this.gameManager.hasVisitedLevel(level);
+        
+        // 初始化基础配置
+        let config = this.getBaseLevelConfig(level);
+        
+        // 为前三关添加更多变化
+        if (level <= 3 && !this.isFirstVisit) {
+            config = this.generateEarlyLevelVariation(config, level);
+        }
+        // 如果玩家有能力，为更高级别添加变化
+        else if (level > 3) {
+            config = this.generateLevelVariation(config, level);
+        }
+        
+        // 应用特殊事件
+        config = this.applySpecialEvents(config);
+        
+        // 提高每个关卡的移动限制，确保有足够的操作空间
+        // 关卡越高，容忍度越低
+        const moveBuffer = Math.max(5, Math.ceil(15 - level * 0.5));
+        config.moveLimit = config.optimalMoves + moveBuffer;
+        
+        // 存入缓存
+        this.configCache[level] = config;
+        return config;
+    }
+
+    // 为前三关生成特定变化
+    generateEarlyLevelVariation(config, level) {
+        if (this.debugEnabled) {
+            console.log(`为前三关(${level})生成特殊变化`);
+        }
+        
+        // 圆盘数量变化 - 保持在易于理解的范围内
+        // 对于第1关：3-4个圆盘
+        // 对于第2关：3-5个圆盘
+        // 对于第3关：4-5个圆盘
+        let discRange;
+        switch(level) {
+            case 1:
+                discRange = [3, 4];
+                break;
+            case 2:
+                discRange = [3, 5];
+                break;
+            case 3:
+                discRange = [4, 5];
+                break;
+            default:
+                discRange = [3, 4];
+        }
+        
+        // 随机选择圆盘数量
+        config.discCount = discRange[0] + Math.floor(this.seededRandom() * (discRange[1] - discRange[0] + 1));
+        
+        // 塔数变化 - 最多4个塔，保持游戏简单
+        // 第1关：90%是3塔，10%是4塔
+        // 第2关和第3关：80%是3塔，20%是4塔
+        let towerProb = (level === 1) ? 0.1 : 0.2;
+        
+        // 随机决定塔数
+        if (this.seededRandom() < towerProb) {
+            config.towerCount = 4;
+        } else {
+            config.towerCount = 3; // 默认3塔
+        }
+        
+        // 计算最优移动次数
+        config.optimalMoves = (config.towerCount === 3) ? 
+            Math.pow(2, config.discCount) - 1 : 
+            Math.floor((Math.pow(2, config.discCount) - 1) * 0.8);
+        
+        // 移动限制 - 给予宽松的操作空间
+        config.moveLimit = Math.ceil(config.optimalMoves * 2.0);
+        
+        // 时间限制 - 前三关给予充足的时间
+        const towerFactor = 1 + (config.towerCount - 3) * 0.2; // 4塔比3塔多20%时间
+        config.timeLimit = Math.ceil((config.optimalMoves * 2.5 * towerFactor) + 40);
+        
+        // 随机添加简单的小变化
+        const variations = [];
+        
+        // 40%概率添加圆盘颜色强化
+        if (this.seededRandom() < 0.4) {
+            config.colorEnhancement = true;
+            variations.push("颜色强化");
+        }
+        
+        // 30%概率添加简单的视觉效果
+        if (this.seededRandom() < 0.3) {
+            config.visualEffect = "gentle"; // 温和的视觉效果
+            variations.push("圆盘光效");
+        }
+        
+        // 20%概率添加初始提示
+        if (this.seededRandom() < 0.2) {
+            config.initialHints = Math.min(3, Math.floor(config.discCount / 2));
+            variations.push(`${config.initialHints}次提示`);
+        }
+        
+        // 设置特殊事件名称
+        if (variations.length > 0) {
+            config.specialEventName = `新手友好: ${variations.join(", ")}`;
+        } else {
+            config.specialEventName = `经典挑战: ${config.discCount}圆盘-${config.towerCount}塔`;
+        }
+        
+        if (this.debugEnabled) {
+            console.log(`前三关生成结果:`, config);
+        }
+        
+        return config;
     }
 }

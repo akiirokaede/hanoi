@@ -22,6 +22,9 @@ class HanoiRoguelike {
         // 初始化道具系统 (在游戏对象之后)
         this.itemSystem = new ItemSystem(this);
         
+        // 初始化效果系统
+        this.effectsSystem = new EffectsSystem(this); // 新增效果管理系统
+        
         // 绑定UI事件
         this.setupEventListeners();
         
@@ -90,6 +93,11 @@ class HanoiRoguelike {
         
         // 连续快速移动检测
         document.addEventListener('click', () => this.checkSequentialMoves());
+        
+        // 时间祝福事件监听
+        document.addEventListener('timeBlessing', (event) => {
+            this.onTimeBlessing(event.detail.bonusSeconds);
+        });
     }
 
     // 开始新游戏
@@ -105,11 +113,17 @@ class HanoiRoguelike {
         // 调试信息
         console.log('开始加载下一关');
         
+        // 清除所有特殊关卡效果
+        document.getElementById('game-screen').classList.remove('treasure-level');
+        
         // 从关卡系统获取新关卡设置
         const levelConfig = this.levelSystem.generateNextLevel();
         
         // 调试输出 - 确认关卡配置已正确生成
         console.log("生成关卡配置:", levelConfig);
+        console.log("关卡圆盘数:", levelConfig.discCount);
+        console.log("移动上限:", levelConfig.moveLimit);
+        console.log("关卡塔数:", levelConfig.towerCount);
         
         // 更新UI显示
         document.getElementById('level-number').textContent = levelConfig.level;
@@ -137,6 +151,7 @@ class HanoiRoguelike {
         }
         
         // 设置塔游戏 - 更新以支持动态塔数量和特殊事件配置
+        console.log("正在设置塔游戏，传递圆盘数:", levelConfig.discCount);
         this.towerGame.setLevel(
             levelConfig.discCount, 
             levelConfig.moveLimit, 
@@ -147,6 +162,14 @@ class HanoiRoguelike {
         // 设置并启动计时器
         this.timer.setTimer(levelConfig.timeLimit, () => this.onTimeUp());
         this.timer.startTimer();
+        
+        // 清除之前的效果
+        this.effectsSystem.clearAllEffects();
+        
+        // 应用关卡变化的效果
+        if (levelConfig.variation) {
+            this.applyVariationEffects(levelConfig.variation);
+        }
         
         // 确保游戏状态正确
         this.isPlaying = true; 
@@ -170,6 +193,145 @@ class HanoiRoguelike {
             }
         };
         document.addEventListener('timeBlessing', this.handleTimeBlessing);
+    }
+    
+    // 应用关卡变化的效果
+    applyVariationEffects(variation) {
+        // 应用祝福效果到效果系统
+        if (variation.blessings && variation.blessings.length > 0) {
+            variation.blessings.forEach(blessing => {
+                this.applyBlessing(blessing);
+            });
+        }
+        
+        // 应用诅咒效果到效果系统
+        if (variation.curses && variation.curses.length > 0) {
+            variation.curses.forEach(curse => {
+                this.applyCurse(curse);
+            });
+        }
+    }
+    
+    // 应用祝福效果
+    applyBlessing(blessing) {
+        const blessingDuration = 45; // 默认45秒
+        
+        switch (blessing) {
+            case "时间祝福":
+                this.effectsSystem.addEffect({
+                    id: `blessing-time-${Date.now()}`,
+                    type: 'blessing',
+                    name: '时间祝福',
+                    description: '每次移动增加1秒',
+                    duration: blessingDuration,
+                    icon: '⏱️',
+                    onStart: (game) => {
+                        game.towerGame.hasBlessingTimeBonus = true;
+                    },
+                    onEnd: (game) => {
+                        game.towerGame.hasBlessingTimeBonus = false;
+                    }
+                });
+                break;
+                
+            case "清晰祝福":
+                this.effectsSystem.addEffect({
+                    id: `blessing-clarity-${Date.now()}`,
+                    type: 'blessing',
+                    name: '清晰祝福',
+                    description: '提示概率增加30%',
+                    duration: blessingDuration,
+                    icon: '👁️',
+                    onStart: (game) => {
+                        game.towerGame.hintChanceBonus = 0.3;
+                    },
+                    onEnd: (game) => {
+                        game.towerGame.hintChanceBonus = 0;
+                    },
+                    onTick: (game) => {
+                        if (Math.random() < 0.1) {
+                            game.towerGame.discs.forEach(disc => {
+                                if (disc.isInvisible) {
+                                    disc.temporaryReveal();
+                                }
+                            });
+                        }
+                    }
+                });
+                break;
+                
+            case "幸运祝福":
+                this.effectsSystem.addEffect({
+                    id: `blessing-luck-${Date.now()}`,
+                    type: 'blessing',
+                    name: '幸运祝福',
+                    description: '道具掉落率提高20%',
+                    duration: blessingDuration,
+                    icon: '🍀',
+                    onStart: (game) => {
+                        game.towerGame.itemChanceBonus = 0.2;
+                    },
+                    onEnd: (game) => {
+                        game.towerGame.itemChanceBonus = 0;
+                    }
+                });
+                break;
+        }
+    }
+    
+    // 应用诅咒效果
+    applyCurse(curse) {
+        const curseDuration = 30; // 默认30秒
+        
+        switch (curse) {
+            case "迷雾诅咒":
+                this.effectsSystem.addEffect({
+                    id: `curse-fog-${Date.now()}`,
+                    type: 'curse',
+                    name: '迷雾诅咒',
+                    description: '视野受阻，UI元素模糊',
+                    duration: curseDuration,
+                    icon: '🌫️',
+                    onStart: (game) => {
+                        const fogOverlay = document.createElement('div');
+                        fogOverlay.className = 'fog-overlay';
+                        fogOverlay.id = 'fog-curse-overlay';
+                        document.querySelector('.game-area').appendChild(fogOverlay);
+                        
+                        document.querySelectorAll('.ui-element, .disc').forEach(elem => {
+                            if (Math.random() < 0.3) {
+                                elem.classList.add('foggy');
+                            }
+                        });
+                    },
+                    onTick: (game) => {
+                        const fogOverlay = document.getElementById('fog-curse-overlay');
+                        if (fogOverlay) {
+                            const opacity = 0.2 + (Math.sin(Date.now() / 1000) + 1) * 0.15;
+                            fogOverlay.style.opacity = opacity.toString();
+                        }
+                        
+                        if (Math.random() < 0.05) {
+                            document.querySelectorAll('.ui-element, .disc').forEach(elem => {
+                                if (Math.random() < 0.2) {
+                                    elem.classList.toggle('foggy');
+                                }
+                            });
+                        }
+                    },
+                    onEnd: (game) => {
+                        const fogOverlay = document.getElementById('fog-curse-overlay');
+                        if (fogOverlay && fogOverlay.parentNode) {
+                            fogOverlay.parentNode.removeChild(fogOverlay);
+                        }
+                        
+                        document.querySelectorAll('.foggy').forEach(elem => {
+                            elem.classList.remove('foggy');
+                        });
+                    }
+                });
+                break;
+        }
     }
     
     // 暂停游戏
@@ -205,10 +367,9 @@ class HanoiRoguelike {
     
     // 游戏失败处理
     onTimeUp() {
-        // 如果护盾处于激活状态，消耗护盾并继续游戏
         if (this.shieldActive) {
             this.shieldActive = false;
-            this.timer.addTime(60); // 额外给予60秒
+            this.timer.addTime(60);
             document.getElementById('message').textContent = '护盾保护了你！获得额外时间。';
             setTimeout(() => document.getElementById('message').textContent = '', 3000);
             playSound('shield');
@@ -218,16 +379,11 @@ class HanoiRoguelike {
         playSound('game_over');
         this.isPlaying = false;
         
-        // 移除游戏界面中的特殊样式
-        document.getElementById('game-screen').classList.remove('treasure-level');
-        
-        // 移除迷雾效果（如果有）
         const fogOverlay = document.querySelector('.fog-overlay');
         if (fogOverlay && fogOverlay.parentNode) {
             fogOverlay.parentNode.removeChild(fogOverlay);
         }
         
-        // 恢复被诅咒修改的样式
         document.querySelectorAll('.ui-element.foggy').forEach(elem => {
             elem.classList.remove('foggy');
         });
@@ -236,7 +392,6 @@ class HanoiRoguelike {
             elem.classList.remove('wobble-tower');
         });
         
-        // 恢复CSS变量
         document.documentElement.style.removeProperty('--disc-move-speed');
         document.documentElement.style.removeProperty('--disc-transition');
         
@@ -249,7 +404,6 @@ class HanoiRoguelike {
         document.getElementById('final-level').textContent = this.levelSystem.getCurrentLevel();
         document.getElementById('items-collected').textContent = this.itemsCollected;
         
-        // 检查是否为高分
         if (this.leaderboard.isHighScore(this.score)) {
             const nameInput = document.getElementById('player-name');
             nameInput.value = getFromLocalStorage('playerName') || '';
@@ -267,56 +421,42 @@ class HanoiRoguelike {
         const playerName = nameInput.value.trim();
         
         if (playerName) {
-            // 保存玩家名称以便下次使用
             saveToLocalStorage('playerName', playerName);
-            
-            // 添加分数到排行榜
             this.leaderboard.addScore(playerName, this.score, this.levelSystem.getCurrentLevel());
-            
-            // 隐藏名称输入框
             document.querySelector('.name-input').style.display = 'none';
-            
             playSound('score_submit');
         }
     }
     
     // 显示关卡完成屏幕
     onLevelCompleted(data) {
-        // 停止计时器
         this.timer.stopTimer();
         
         const { moveCount, movesGoal } = data;
         const timeLeft = this.timer.getRemainingTime();
         
-        // 计算关卡得分
         const scoreData = this.levelSystem.calculateLevelScore(moveCount, timeLeft, movesGoal);
         
-        // 如果双倍分数效果激活，应用双倍得分
         if (this.itemSystem.activeEffects.doubleScore) {
             scoreData.totalScore *= 2;
-            this.itemSystem.activeEffects.doubleScore = false; // 使用后效果消失
+            this.itemSystem.activeEffects.doubleScore = false;
         }
         
-        // 更新总分
         this.score += scoreData.totalScore;
         document.getElementById('score').textContent = this.score.toLocaleString();
         
-        // 评估玩家表现
         const performance = this.levelSystem.evaluatePerformance(moveCount, timeLeft);
         
-        // 生成关卡奖励
         const rewards = this.itemSystem.generateLevelRewards(
             this.levelSystem.getCurrentLevel(),
             performance
         );
         
-        // 更新关卡完成屏幕
         document.getElementById('completed-level').textContent = this.levelSystem.getCurrentLevel();
         document.getElementById('used-moves').textContent = moveCount;
         document.getElementById('remaining-time').textContent = formatTime(timeLeft);
         document.getElementById('level-score').textContent = scoreData.totalScore.toLocaleString();
         
-        // 显示奖励
         const rewardsContainer = document.getElementById('rewards-container');
         rewardsContainer.innerHTML = '';
         
@@ -337,7 +477,6 @@ class HanoiRoguelike {
                 rewardElement.appendChild(nameElement);
                 rewardsContainer.appendChild(rewardElement);
                 
-                // 添加到玩家道具
                 this.itemSystem.addItem(reward);
                 this.itemsCollected++;
             });
@@ -347,28 +486,22 @@ class HanoiRoguelike {
             rewardsContainer.appendChild(noRewards);
         }
         
-        // 重置下一关按钮的事件绑定
         const nextLevelBtn = document.getElementById('next-level-btn');
         if (nextLevelBtn) {
-            // 清除所有旧事件
             const newBtn = nextLevelBtn.cloneNode(true);
             if (nextLevelBtn.parentNode) {
                 nextLevelBtn.parentNode.replaceChild(newBtn, nextLevelBtn);
             }
             
-            // 绑定新的点击事件
             newBtn.addEventListener('click', () => {
                 console.log('关卡完成屏幕中的下一关按钮被点击');
                 this.startNextLevel();
             });
         }
         
-        // 显示关卡完成屏幕
         this.showScreen('levelComplete');
         
-        // 确保关卡完成屏幕正确显示
         if (this.screens.levelComplete) {
-            // 强制设置样式以确保正确显示
             this.screens.levelComplete.style.display = 'flex';
             this.screens.levelComplete.style.zIndex = '50';
             this.screens.levelComplete.classList.add('active');
@@ -397,7 +530,6 @@ class HanoiRoguelike {
         if (now - this.lastMoveTime < 1000) {
             this.moveSequence++;
             
-            // 连续快速移动3次有几率触发道具
             if (this.moveSequence >= 3 && chance(20)) {
                 this.towerGame.triggerItemSpawn('speed');
                 this.moveSequence = 0;
@@ -430,7 +562,6 @@ class HanoiRoguelike {
         this.teleportMode = true;
         document.getElementById('message').textContent = '传送模式已激活！请选择要移动的圆盘所在的塔。';
         
-        // 添加视觉效果，使所有可选择的塔发光
         const towers = document.querySelectorAll('.tower');
         towers.forEach(tower => {
             if (!this.towerGame.towers[parseInt(tower.id.split('-')[1]) - 1].isEmpty()) {
@@ -438,7 +569,6 @@ class HanoiRoguelike {
             }
         });
         
-        // 等待玩家选择塔
         this.waitForTeleportSelection();
     }
     
@@ -446,7 +576,6 @@ class HanoiRoguelike {
     waitForTeleportSelection() {
         let fromTower = null;
         
-        // 创建事件处理函数
         const towerClickHandler = (event) => {
             const towerElement = event.target.closest('.tower');
             if (!towerElement) return;
@@ -455,13 +584,10 @@ class HanoiRoguelike {
             const tower = this.towerGame.towers[towerId - 1];
             
             if (!fromTower) {
-                // 第一次点击，选择源塔
-                // 移除所有塔的预选择状态
                 document.querySelectorAll('.tower').forEach(t => {
                     t.classList.remove('teleport-target-ready');
                 });
                 
-                // 检查所选塔是否为空
                 if (tower.isEmpty()) {
                     document.getElementById('message').textContent = '这个塔没有圆盘可移动！请选择其他塔。';
                     return;
@@ -469,10 +595,8 @@ class HanoiRoguelike {
                 
                 fromTower = tower;
                 
-                // 高亮显示选中的塔
                 fromTower.element.classList.add('teleport-source');
                 
-                // 添加视觉效果到可选的目标塔
                 const towers = document.querySelectorAll('.tower');
                 towers.forEach(t => {
                     if (t !== fromTower.element) {
@@ -480,24 +604,19 @@ class HanoiRoguelike {
                     }
                 });
                 
-                // 更新提示消息
                 document.getElementById('message').textContent = '现在请选择目标塔...';
                 
                 playSound('select');
             } else {
-                // 第二次点击，选择目标塔
                 const toTower = tower;
                 
-                // 如果点击的是同一个塔，取消选择
                 if (fromTower === toTower) {
                     document.getElementById('message').textContent = '传送已取消。请重新选择要移动的圆盘所在的塔。';
                     
-                    // 移除所有塔的状态
                     document.querySelectorAll('.tower').forEach(t => {
                         t.classList.remove('teleport-source', 'teleport-target-ready');
                     });
                     
-                    // 重新显示可选择的塔
                     document.querySelectorAll('.tower').forEach(t => {
                         const tId = parseInt(t.id.split('-')[1]);
                         if (!this.towerGame.towers[tId - 1].isEmpty()) {
@@ -509,46 +628,36 @@ class HanoiRoguelike {
                     return;
                 }
                 
-                // 移除高亮显示
                 fromTower.element.classList.remove('teleport-source');
                 
-                // 移除所有塔的预选择状态
                 document.querySelectorAll('.tower').forEach(t => {
                     t.classList.remove('teleport-target-ready');
                 });
                 
-                // 添加传送动画效果到源塔和目标塔
                 fromTower.element.classList.add('teleporting');
                 toTower.element.classList.add('teleporting');
                 
-                // 使用传送石 - 调用TowerGame中的方法
                 this.towerGame.useTeleportItem(fromTower, toTower);
                 
-                // 移除事件监听器
                 const towers = document.querySelectorAll('.tower');
                 towers.forEach(t => {
                     t.removeEventListener('click', towerClickHandler);
                 });
                 
-                // 重置状态
                 this.teleportMode = false;
                 
-                // 更新提示消息
                 document.getElementById('message').textContent = '传送完成！';
                 setTimeout(() => {
                     document.getElementById('message').textContent = '';
                     
-                    // 移除传送动画效果
                     fromTower.element.classList.remove('teleporting');
                     toTower.element.classList.remove('teleporting');
                 }, 2000);
                 
-                // 播放传送音效
                 playSound('teleport');
             }
         };
         
-        // 添加点击事件到所有塔
         const towers = document.querySelectorAll('.tower');
         towers.forEach(tower => {
             tower.addEventListener('click', towerClickHandler);
@@ -608,18 +717,15 @@ class HanoiRoguelike {
     
     // 切换屏幕显示
     showScreen(screenName) {
-        // 先隐藏所有屏幕
         Object.values(this.screens).forEach(screen => {
             screen.style.display = 'none';
             screen.classList.remove('active');
         });
         
-        // 显示指定屏幕
         if (this.screens[screenName]) {
             this.screens[screenName].style.display = 'flex';
             this.screens[screenName].classList.add('active');
             
-            // 设置不同屏幕的z-index以确保正确的层叠顺序
             if (screenName === 'levelComplete') {
                 this.screens[screenName].style.zIndex = '50';
             } else if (screenName === 'pause') {
@@ -645,10 +751,48 @@ class HanoiRoguelike {
         
         document.getElementById('score').textContent = '0';
         
-        // 重置各子系统
         this.towerGame.reset();
         this.timer.stopTimer();
         this.levelSystem.reset();
         this.itemSystem.reset();
+        this.effectsSystem.clearAllEffects();
+    }
+    
+    // 处理时间祝福效果
+    onTimeBlessing(bonusSeconds) {
+        this.timer.addTime(bonusSeconds);
+        
+        const timerElement = document.getElementById('timer');
+        const rect = timerElement.getBoundingClientRect();
+        
+        const pulse = document.createElement('div');
+        pulse.className = 'time-blessing-pulse';
+        pulse.style.left = `${rect.left + rect.width / 2}px`;
+        pulse.style.top = `${rect.top + rect.height / 2}px`;
+        document.body.appendChild(pulse);
+        
+        setTimeout(() => {
+            if (pulse.parentNode) {
+                pulse.parentNode.removeChild(pulse);
+            }
+        }, 1000);
+        
+        const bonusText = document.createElement('div');
+        bonusText.textContent = `+${bonusSeconds}s`;
+        bonusText.style.position = 'absolute';
+        bonusText.style.left = `${rect.left + rect.width / 2}px`;
+        bonusText.style.top = `${rect.top - 10}px`;
+        bonusText.style.transform = 'translate(-50%, -50%)';
+        bonusText.style.color = '#2ecc71';
+        bonusText.style.fontWeight = 'bold';
+        bonusText.style.zIndex = '100';
+        bonusText.style.animation = 'float-up 1.5s forwards';
+        document.body.appendChild(bonusText);
+        
+        setTimeout(() => {
+            if (bonusText.parentNode) {
+                bonusText.parentNode.removeChild(bonusText);
+            }
+        }, 1500);
     }
 }

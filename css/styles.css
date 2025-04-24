@@ -640,47 +640,115 @@ body {
     animation: float 1s infinite;
 }
 
-/* 特殊事件消息样式 */
+/* 特殊事件消息样式 - 增强版 */
 .special-event-message {
     position: absolute;
     top: 10px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(0, 0, 0, 0.7);
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 40, 0.9) 100%);
     color: #fff;
-    padding: 6px 12px;
-    border-radius: 4px;
+    padding: 8px 16px;
+    border-radius: 6px;
     font-weight: bold;
     opacity: 0;
-    transition: opacity 0.3s;
+    transition: all 0.5s ease;
     z-index: 100;
+    box-shadow: 0 0 15px rgba(0, 100, 255, 0.6);
+    border: 1px solid rgba(100, 180, 255, 0.5);
+    font-size: 16px;
+    max-width: 80%;
+    text-align: center;
+    backdrop-filter: blur(5px);
 }
 
 .special-event-message.show {
     opacity: 1;
+    animation: pulse-glow 2s infinite alternate;
 }
 
-/* 特殊事件样式 */
-/* 特大圆盘挑战样式已在Disc类构造函数中通过JS设置 */
+/* 特大圆盘挑战增强效果 */
+.disc.special-disc {
+    animation: special-disc-glow 2s infinite alternate;
+    position: relative;
+    overflow: visible;
+}
 
-/* 迷你塔样式已在Tower类构造函数中通过JS设置 */
+.disc.special-disc::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    background: transparent;
+    border-radius: inherit;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    animation: disc-pulse 1.5s infinite alternate;
+    z-index: -1;
+}
 
-/* 隐形圆盘样式已在Disc类构造函数中通过JS设置 */
+/* 隐形圆盘增强效果 */
+.disc.invisible-disc {
+    animation: flicker 4s infinite;
+    box-shadow: 0 0 10px rgba(200, 230, 255, 0.8);
+}
 
-/* 双目标样式 */
+/* 双目标增强效果 */
 .target-marker {
-    animation: pulse 2s infinite;
+    animation: target-pulse 1.5s infinite alternate;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(255, 100, 50, 0.8);
+    padding: 3px 6px;
+    background: rgba(231, 76, 60, 0.2);
+    border-radius: 4px;
+    border: 1px solid rgba(231, 76, 60, 0.5);
 }
 
-/* 宝藏关卡样式 */
+/* 迷你塔增强效果 */
+.tower.mini-tower .pole {
+    background: linear-gradient(to bottom, #95a5a6 0%, #7f8c8d 100%);
+    box-shadow: 0 0 10px rgba(127, 140, 141, 0.6);
+}
+
+.tower.mini-tower::after {
+    content: '⬇';
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #3498db;
+    font-size: 18px;
+    animation: bounce 1s infinite alternate;
+}
+
+/* 宝藏关卡增强效果 */
 .treasure-level .game-area {
     background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), 
                 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><rect width="100%" height="100%" fill="none"/><path d="M0 0L20 20ZM20 0L0 20Z" stroke="%23f1c40f" stroke-width="1"/></svg>');
+    position: relative;
+}
+
+.treasure-level .game-area::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at center, rgba(241, 196, 15, 0.1) 0%, transparent 70%);
+    animation: treasure-glow 4s infinite alternate;
+    pointer-events: none;
 }
 
 .tower .base.treasure {
     background: linear-gradient(45deg, #f1c40f, #e67e22);
     box-shadow: 0 0 15px rgba(241, 196, 15, 0.7);
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
 }
 
 .shimmer {
@@ -695,9 +763,89 @@ body {
         rgba(255, 255, 255, 0) 100%);
     background-size: 200% 100%;
     animation: shimmer 2s infinite linear;
+    pointer-events: none;
+    z-index: 2;
 }
 
-/* 迷雾诅咒样式 */
+/* 祝福与诅咒UI指示器 */
+.effects-container {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 20;
+    max-width: 180px;
+}
+
+.effect-indicator {
+    display: flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 20px;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s;
+    overflow: hidden;
+}
+
+.effect-indicator.blessing {
+    border-left: 4px solid #2ecc71;
+}
+
+.effect-indicator.curse {
+    border-left: 4px solid #e74c3c;
+}
+
+.effect-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.effect-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.effect-name {
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.effect-description {
+    font-size: 10px;
+    opacity: 0.8;
+}
+
+.effect-timer {
+    height: 3px;
+    background: white;
+    width: 100%;
+    margin-top: 3px;
+    border-radius: 3px;
+    animation: timer-countdown linear;
+    animation-fill-mode: forwards;
+    transform-origin: left;
+}
+
+.effect-indicator.blessing .effect-timer {
+    background: #2ecc71;
+}
+
+.effect-indicator.curse .effect-timer {
+    background: #e74c3c;
+}
+
+/* 迷雾诅咒增强效果 */
 .fog-overlay {
     position: absolute;
     top: 0;
@@ -707,72 +855,167 @@ body {
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><filter id="fog"><feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="5"/><feDisplacementMap in="SourceGraphic" scale="180"/></filter><rect width="100%" height="100%" filter="url(%23fog)" opacity="0.3" fill="rgba(200, 200, 255, 0.3)"/></svg>');
     pointer-events: none;
     z-index: 50;
+    animation: fog-movement 30s infinite alternate;
 }
 
 .ui-element.foggy {
     filter: blur(3px);
     opacity: 0.7;
+    transition: all 0.5s;
 }
 
-/* 迷失诅咒样式 */
-@keyframes wobble {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
+/* 迷失诅咒增强效果 */
+@keyframes wobble-enhanced {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(-5px) rotate(-1deg); }
+    75% { transform: translateX(5px) rotate(1deg); }
 }
 
-.wobble-tower {
-    animation: wobble 2s infinite ease-in-out;
+.tower.wobble-tower {
+    animation: wobble-enhanced 2s infinite ease-in-out;
 }
 
-/* 晕眩诅咒样式已在TowerGame.applyCurses方法中通过JS设置 */
+/* 晕眩诅咒增强效果 */
+.disc.dizzy {
+    animation: color-shift 5s infinite alternate;
+    transition: background-color 1s ease;
+}
 
-/* 祝福样式 */
+/* 贝塞尔曲线效果样式 */
+.bezier-curve {
+    position: absolute;
+    stroke: rgba(255, 255, 255, 0.3);
+    stroke-width: 2px;
+    stroke-dasharray: 5;
+    fill: none;
+    pointer-events: none;
+    z-index: 1;
+    filter: drop-shadow(0 0 3px rgba(52, 152, 219, 0.5));
+    animation: dash-movement 1s linear infinite;
+}
+
+/* 重置祝福按钮增强样式 */
 .blessing-reset-button {
-    background-color: #2ecc71;
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
     border: none;
     color: white;
-    padding: 8px 16px;
+    padding: 10px 18px;
     text-align: center;
     font-size: 14px;
-    border-radius: 4px;
+    border-radius: 20px;
     cursor: pointer;
     margin-top: 10px;
-    transition: background-color 0.3s;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    font-weight: bold;
+    position: relative;
+    overflow: hidden;
+}
+
+.blessing-reset-button::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.8) 0%, transparent 60%);
+    opacity: 0;
+    transform: scale(0.5);
+    transition: transform 0.3s, opacity 0.3s;
 }
 
 .blessing-reset-button:hover {
-    background-color: #27ae60;
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+.blessing-reset-button:hover::before {
+    opacity: 0.15;
+    transform: scale(1);
+}
+
+.blessing-reset-button:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
 }
 
 .blessing-reset-button:disabled {
-    background-color: #95a5a6;
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
     cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* 消息样式 */
+/* 时间祝福动画 */
+.time-blessing-pulse {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: rgba(46, 204, 113, 0.2);
+    border-radius: 50%;
+    animation: time-blessing-expand 1s ease-out forwards;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* 祝福与诅咒消息增强 */
 .curse-message {
     color: #e74c3c !important;
     font-weight: bold;
-    animation: shake 0.5s linear;
+    animation: shake 0.5s linear, glow-red 2s infinite alternate;
+    text-shadow: 0 0 5px rgba(231, 76, 60, 0.7);
 }
 
 .blessing-message {
     color: #2ecc71 !important;
     font-weight: bold;
-    animation: float 1s ease-in-out;
+    animation: float 1s ease-in-out, glow-green 2s infinite alternate;
+    text-shadow: 0 0 5px rgba(46, 204, 113, 0.7);
 }
 
 .treasure-message {
     color: #f1c40f !important;
     font-weight: bold;
-    animation: shine 2s linear infinite;
+    animation: shine 2s linear infinite, float 2s infinite ease-in-out;
+    text-shadow: 0 0 8px rgba(241, 196, 15, 0.8);
 }
 
-/* 动画定义 */
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+/* 增强动画定义 */
+@keyframes pulse-glow {
+    0% { box-shadow: 0 0 10px rgba(0, 100, 255, 0.6); }
+    100% { box-shadow: 0 0 20px rgba(0, 100, 255, 0.9); }
+}
+
+@keyframes special-disc-glow {
+    0% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.6); }
+    100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.9); }
+}
+
+@keyframes disc-pulse {
+    0% { opacity: 0.6; transform: scale(1); }
+    100% { opacity: 0.1; transform: scale(1.1); }
+}
+
+@keyframes flicker {
+    0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 0.3; }
+    20%, 24%, 55% { opacity: 0.7; }
+}
+
+@keyframes target-pulse {
+    0% { text-shadow: 0 0 5px rgba(255, 100, 50, 0.5); }
+    100% { text-shadow: 0 0 15px rgba(255, 100, 50, 0.9); }
+}
+
+@keyframes bounce {
+    0% { transform: translateX(-50%) translateY(0); }
+    100% { transform: translateX(-50%) translateY(-8px); }
+}
+
+@keyframes treasure-glow {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
 }
 
 @keyframes shimmer {
@@ -780,15 +1023,39 @@ body {
     100% { background-position: 200% 0; }
 }
 
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-    20%, 40%, 60%, 80% { transform: translateX(2px); }
+@keyframes fog-movement {
+    0% { background-position: 0% 0%; filter: blur(5px); }
+    50% { filter: blur(10px); }
+    100% { background-position: 100% 100%; filter: blur(5px); }
 }
 
-@keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
+@keyframes dash-movement {
+    to { stroke-dashoffset: -20; }
+}
+
+@keyframes timer-countdown {
+    0% { transform: scaleX(1); }
+    100% { transform: scaleX(0); }
+}
+
+@keyframes time-blessing-expand {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(3); opacity: 0; }
+}
+
+@keyframes color-shift {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+}
+
+@keyframes glow-red {
+    0% { text-shadow: 0 0 5px rgba(231, 76, 60, 0.7); }
+    100% { text-shadow: 0 0 15px rgba(231, 76, 60, 1); }
+}
+
+@keyframes glow-green {
+    0% { text-shadow: 0 0 5px rgba(46, 204, 113, 0.7); }
+    100% { text-shadow: 0 0 15px rgba(46, 204, 113, 1); }
 }
 
 @keyframes shine {
