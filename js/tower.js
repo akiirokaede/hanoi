@@ -286,6 +286,8 @@ class TowerGame {
         this.gameStarted = false;
         this.levelCompleted = false;
         this.targetTower = 0; // 目标塔的索引，默认是最后一个塔
+        this.isDiscMoving = false; // 添加状态标记，跟踪是否有圆盘正在移动
+        this.hasSlownessCurse = false; // 添加标记，跟踪是否受到迟缓诅咒
         
         // 不再在构造函数中初始化塔座，改为在setLevel方法中动态创建
     }
@@ -294,7 +296,24 @@ class TowerGame {
     addTowerEventListeners() {
         for (const tower of this.towers) {
             tower.element.addEventListener('click', () => {
+                // 检查游戏状态
                 if (!this.gameStarted || this.levelCompleted) return;
+                
+                // 如果有圆盘正在移动中且玩家受到迟缓诅咒，忽略点击
+                if (this.hasSlownessCurse && this.isDiscMoving) {
+                    // 添加视觉或声音提示，表明需要等待
+                    playSound('error');
+                    const message = document.getElementById('message');
+                    if (!message.textContent.includes('请等待')) {
+                        message.textContent = '请等待当前移动完成...';
+                        setTimeout(() => {
+                            if (message.textContent.includes('请等待')) {
+                                message.textContent = '';
+                            }
+                        }, 1000);
+                    }
+                    return;
+                }
                 
                 // 如果没有选中塔座，选择当前点击的塔座
                 if (this.selectedTower === null) {
@@ -636,6 +655,9 @@ class TowerGame {
     
     // 添加自然掉落动画
     animateDiscMove(disc, toTower) {
+        // 设置圆盘正在移动标志 - 用于迟缓诅咒效果
+        this.isDiscMoving = true;
+        
         // 创建一条虚拟移动路径 - 增强视觉效果
         this.createMovePath(disc, toTower);
         
@@ -652,8 +674,10 @@ class TowerGame {
         // 触发重绘，确保圆盘先显示在顶部
         void disc.element.offsetWidth;
         
-        // 开始掉落动画 - 使用更优美的曲线效果
-        disc.element.style.transition = 'bottom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'; // 弹跳效果
+        // 开始掉落动画 - 使用CSS变量
+        const moveSpeed = getComputedStyle(document.documentElement).getPropertyValue('--disc-move-speed').trim();
+        const transitionTiming = getComputedStyle(document.documentElement).getPropertyValue('--disc-transition-timing').trim();
+        disc.element.style.transition = `bottom ${moveSpeed} ${transitionTiming}, transform ${moveSpeed} ${transitionTiming}`;
         
         // 计算圆盘最终位置
         const position = toTower.discs.length; // 圆盘将落在塔上现有圆盘之上
@@ -688,6 +712,9 @@ class TowerGame {
         this.moveCount++;
         this.updateMoves();
         
+        // 解析transition的时间，用于设置正确的动画结束时间
+        const transitionTime = parseFloat(moveSpeed) * 1000 || 500; // 如果解析失败，默认500ms
+        
         // 延迟检查游戏完成状态，等待动画结束
         setTimeout(() => {
             // 添加着陆动画效果
@@ -703,8 +730,11 @@ class TowerGame {
             // 移除着陆效果类
             setTimeout(() => {
                 disc.element.classList.remove('landing');
+                
+                // 动画和额外效果都结束后，重置圆盘移动标志
+                this.isDiscMoving = false;
             }, 500);
-        }, 500); // 与动画时长匹配
+        }, transitionTime); // 动态匹配动画时长
     }
     
     // 创建圆盘移动路径可视化
@@ -970,6 +1000,12 @@ class TowerGame {
         document.getElementById('message').textContent = '';
         this.gameStarted = false;
         this.levelCompleted = false;
+        this.isDiscMoving = false; // 重置圆盘移动状态
+        this.hasSlownessCurse = false; // 重置迟缓诅咒状态
+        
+        // 重置CSS变量为默认值
+        document.documentElement.style.setProperty('--disc-move-speed', '0.3s');
+        document.documentElement.style.setProperty('--disc-transition', 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)');
     }
     
     // 自动求解 (供洞察之眼道具使用)
@@ -1541,6 +1577,8 @@ class TowerGame {
                     // 移动动画变慢
                     document.documentElement.style.setProperty('--disc-move-speed', '1s');
                     document.documentElement.style.setProperty('--disc-transition', 'all 1s cubic-bezier(0.34, 1.56, 0.64, 1)');
+                    // 设置迟缓诅咒标志，使动画能真正阻止操作
+                    this.hasSlownessCurse = true;
                     break;
                     
                 case "晕眩诅咒":

@@ -352,6 +352,42 @@ class HanoiRoguelike {
                     }
                 });
                 break;
+                
+            case "重置祝福":
+                this.effectsSystem.addEffect({
+                    id: `blessing-reset-${Date.now()}`,
+                    type: 'blessing',
+                    name: '重置祝福',
+                    description: '添加一次重置布局的机会',
+                    duration: blessingDuration,
+                    icon: '🔄',
+                    onStart: (game) => {
+                        // 调用塔游戏的重置按钮添加方法
+                        game.towerGame.addResetButton();
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '获得重置祝福！现在可以重置一次圆盘布局。';
+                        message.classList.add('blessing-message');
+                        setTimeout(() => {
+                            message.classList.remove('blessing-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('获得重置祝福')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 3000);
+                    },
+                    onEnd: (game) => {
+                        // 重置祝福结束时不需要特殊处理，因为按钮使用后自动禁用
+                        // 如果按钮还没被使用，将保持可用
+                        const resetButton = document.getElementById('reset-button');
+                        if (resetButton && !resetButton.disabled) {
+                            resetButton.title = '重置祝福已过期，但最后一次机会仍然可用';
+                        }
+                    }
+                });
+                break;
         }
     }
     
@@ -404,6 +440,162 @@ class HanoiRoguelike {
                         document.querySelectorAll('.foggy').forEach(elem => {
                             elem.classList.remove('foggy');
                         });
+                    }
+                });
+                break;
+                
+            case "迷失诅咒":
+                this.effectsSystem.addEffect({
+                    id: `curse-wander-${Date.now()}`,
+                    type: 'curse',
+                    name: '迷失诅咒',
+                    description: '塔的位置会轻微随机移动',
+                    duration: curseDuration,
+                    icon: '🌀',
+                    onStart: (game) => {
+                        // 应用摇晃效果到所有塔
+                        game.towerGame.applyWanderingTowers();
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '迷失诅咒生效！塔的位置变得不稳定。';
+                        message.classList.add('curse-message');
+                        setTimeout(() => {
+                            message.classList.remove('curse-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('迷失诅咒')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 3000);
+                    },
+                    onEnd: (game) => {
+                        // 移除所有塔的摇晃效果
+                        document.querySelectorAll('.wobble-tower').forEach(tower => {
+                            tower.classList.remove('wobble-tower');
+                        });
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '迷失诅咒已结束！';
+                        message.classList.add('blessing-message');
+                        setTimeout(() => {
+                            message.classList.remove('blessing-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('诅咒已结束')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 2000);
+                    }
+                });
+                break;
+                
+            case "迟缓诅咒":
+                this.effectsSystem.addEffect({
+                    id: `curse-slow-${Date.now()}`,
+                    type: 'curse',
+                    name: '迟缓诅咒',
+                    description: '移动动画变慢',
+                    duration: curseDuration,
+                    icon: '🐢',
+                    onStart: (game) => {
+                        // 应用慢速动画效果
+                        document.documentElement.style.setProperty('--disc-move-speed', '1.5s');
+                        document.documentElement.style.setProperty('--disc-transition', 'all 1.5s cubic-bezier(0.25, 0.1, 0.25, 1)');
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '迟缓诅咒生效！圆盘移动变慢了。';
+                        message.classList.add('curse-message');
+                        setTimeout(() => {
+                            message.classList.remove('curse-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('迟缓诅咒')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 3000);
+                    },
+                    onEnd: (game) => {
+                        // 恢复正常动画速度
+                        document.documentElement.style.removeProperty('--disc-move-speed');
+                        document.documentElement.style.removeProperty('--disc-transition');
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '迟缓诅咒已结束！';
+                        message.classList.add('blessing-message');
+                        setTimeout(() => {
+                            message.classList.remove('blessing-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('诅咒已结束')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 2000);
+                    }
+                });
+                break;
+                
+            case "晕眩诅咒":
+                this.effectsSystem.addEffect({
+                    id: `curse-dizzy-${Date.now()}`,
+                    type: 'curse',
+                    name: '晕眩诅咒',
+                    description: '圆盘颜色混乱',
+                    duration: curseDuration,
+                    icon: '💫',
+                    onStart: (game) => {
+                        // 应用晕眩效果到圆盘
+                        game.towerGame.applyDizzinessToDiscs();
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '晕眩诅咒生效！圆盘颜色开始变化。';
+                        message.classList.add('curse-message');
+                        setTimeout(() => {
+                            message.classList.remove('curse-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('晕眩诅咒')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 3000);
+                    },
+                    onTick: (game) => {
+                        // 随机改变一些圆盘的色调
+                        if (Math.random() < 0.1) {
+                            game.towerGame.discs.forEach(disc => {
+                                if (disc.element.classList.contains('dizzy') && Math.random() < 0.3) {
+                                    const hue = Math.floor(Math.random() * 360);
+                                    disc.element.style.backgroundColor = `hsl(${hue}, 80%, 60%)`;
+                                }
+                            });
+                        }
+                    },
+                    onEnd: (game) => {
+                        // 移除所有圆盘的晕眩效果
+                        game.towerGame.discs.forEach(disc => {
+                            disc.removeDizziness();
+                            
+                            // 恢复原始颜色
+                            const hue = (disc.size / game.towerGame.discCount) * 360;
+                            disc.element.style.backgroundColor = `hsl(${hue}, 80%, 60%)`;
+                        });
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '晕眩诅咒已结束！';
+                        message.classList.add('blessing-message');
+                        setTimeout(() => {
+                            message.classList.remove('blessing-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('诅咒已结束')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 2000);
                     }
                 });
                 break;
