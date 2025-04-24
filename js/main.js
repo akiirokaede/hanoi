@@ -23,8 +23,71 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化游戏视觉效果
     initVisualEffects();
     
+    // 初始化测试关卡功能
+    initTestLevelFeature(gameInstance);
+    
     console.log("汉诺塔Roguelike游戏已初始化");
 });
+
+// 初始化测试关卡功能
+function initTestLevelFeature(gameInstance) {
+    const testLevelBtn = document.getElementById('test-level-btn');
+    const testLevelScreen = document.getElementById('test-level-screen');
+    const startTestBtn = document.getElementById('start-test-btn');
+    const backFromTestBtn = document.getElementById('back-from-test');
+    const startScreen = document.getElementById('start-screen');
+    
+    // 测试关卡按钮点击事件
+    testLevelBtn.addEventListener('click', () => {
+        // 将测试关卡屏幕添加到游戏实例的screens对象中
+        if (!gameInstance.screens.testLevel) {
+            gameInstance.screens.testLevel = testLevelScreen;
+        }
+        
+        // 使用游戏实例的showScreen方法切换屏幕
+        gameInstance.showScreen('testLevel');
+        console.log("测试关卡界面已激活");
+    });
+    
+    // 返回主菜单按钮点击事件
+    backFromTestBtn.addEventListener('click', () => {
+        gameInstance.showScreen('start');
+    });
+    
+    // 开始测试关卡按钮点击事件
+    startTestBtn.addEventListener('click', () => {
+        // 获取测试配置参数
+        const discCount = parseInt(document.getElementById('test-disc-count').value, 10);
+        const towerCount = parseInt(document.getElementById('test-tower-count').value, 10);
+        const moveLimit = parseInt(document.getElementById('test-move-limit').value, 10);
+        const timeLimit = parseInt(document.getElementById('test-time-limit').value, 10);
+        const specialType = document.getElementById('test-special-type').value;
+        const blessing = document.getElementById('test-blessing').value;
+        const curse = document.getElementById('test-curse').value;
+        
+        // 创建测试关卡配置
+        const testLevelConfig = {
+            isTest: true,            // 标记为测试关卡
+            level: 'TEST',           // 关卡名称显示为TEST
+            discCount: discCount,    // 圆盘数量
+            towerCount: towerCount,  // 塔数量
+            moveLimit: moveLimit,    // 移动次数限制
+            timeLimit: timeLimit,    // 时间限制（秒）
+            score: 100,              // 默认得分
+            specialConfig: {
+                treasureLevel: specialType === 'treasure',
+                dualTargets: specialType === 'dualTargets',
+                miniTower: specialType === 'miniTower',
+                specialDisc: specialType === 'specialDisc',
+                invisibleDiscs: specialType === 'invisibleDiscs'
+            }
+        };
+        
+        // 启动测试关卡
+        testLevelScreen.classList.remove('active');
+        gameInstance.startTestLevel(testLevelConfig, blessing !== 'none' ? blessing : null, curse !== 'none' ? curse : null);
+    });
+}
 
 // 初始化视觉效果系统
 function initVisualEffects() {

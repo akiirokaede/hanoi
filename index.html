@@ -16,6 +16,63 @@
             <button id="start-btn" class="btn">开始游戏</button>
             <button id="leaderboard-btn" class="btn">排行榜</button>
             <button id="tutorial-btn" class="btn">游戏教程</button>
+            <button id="test-level-btn" class="btn">测试关卡</button>
+        </div>
+        
+        <!-- 添加测试关卡配置面板 -->
+        <div id="test-level-screen" class="screen">
+            <h2>测试关卡配置</h2>
+            <div class="test-options">
+                <div class="option-group">
+                    <label for="test-disc-count">圆盘数量:</label>
+                    <input type="number" id="test-disc-count" min="3" max="15" value="5">
+                </div>
+                <div class="option-group">
+                    <label for="test-tower-count">塔数量:</label>
+                    <input type="number" id="test-tower-count" min="3" max="7" value="3">
+                </div>
+                <div class="option-group">
+                    <label for="test-move-limit">移动限制:</label>
+                    <input type="number" id="test-move-limit" min="7" max="1000" value="31">
+                </div>
+                <div class="option-group">
+                    <label for="test-time-limit">时间限制(秒):</label>
+                    <input type="number" id="test-time-limit" min="30" max="600" value="180">
+                </div>
+                <div class="option-group">
+                    <label for="test-special-type">特殊关卡类型:</label>
+                    <select id="test-special-type">
+                        <option value="none">普通关卡</option>
+                        <option value="treasure">宝藏关卡</option>
+                        <option value="dualTargets">双目标塔</option>
+                        <option value="miniTower">迷你塔</option>
+                        <option value="specialDisc">特大圆盘</option>
+                        <option value="invisibleDiscs">隐形圆盘</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="test-blessing">添加祝福:</label>
+                    <select id="test-blessing">
+                        <option value="none">无祝福</option>
+                        <option value="时间祝福">时间祝福</option>
+                        <option value="清晰祝福">清晰祝福</option>
+                        <option value="幸运祝福">幸运祝福</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="test-curse">添加诅咒:</label>
+                    <select id="test-curse">
+                        <option value="none">无诅咒</option>
+                        <option value="迷雾诅咒">迷雾诅咒</option>
+                        <option value="晕眩诅咒">晕眩诅咒</option>
+                        <option value="迟缓诅咒">迟缓诅咒</option>
+                    </select>
+                </div>
+            </div>
+            <div class="test-buttons">
+                <button id="start-test-btn" class="btn">开始测试</button>
+                <button id="back-from-test" class="btn">返回</button>
+            </div>
         </div>
 
         <div id="game-screen" class="screen">
@@ -39,12 +96,11 @@
                     <!-- 塔座将在JavaScript中动态生成 -->
                 </div>
                 
-                <!-- 添加祝福和诅咒效果指示器容器 -->
-                <div class="effects-container" id="effects-container">
-                    <!-- 效果指示器将在JavaScript中动态生成 -->
-                </div>
-                
                 <div id="items-container">
+                    <!-- 添加祝福和诅咒效果指示器容器 -->
+                    <div class="effects-container" id="effects-container">
+                        <!-- 效果指示器将在JavaScript中动态生成 -->
+                    </div>
                     <h3>道具栏</h3>
                     <div id="items-list"></div>
                 </div>

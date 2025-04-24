@@ -322,6 +322,7 @@ body {
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 10px;
     margin-top: auto;
+    position: relative; /* 添加相对定位 */
 }
 
 #items-container h3 {
@@ -770,13 +771,29 @@ body {
 /* 祝福与诅咒UI指示器 */
 .effects-container {
     position: absolute;
-    bottom: 10px;
-    left: 10px;
+    top: -5px; /* 调整为负值，使其向上偏移 */
+    left: 50%;
+    transform: translate(-50%, -100%); /* 同时向上平移100%高度 */
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 10px;
-    z-index: 20;
-    max-width: 180px;
+    z-index: 30; /* 提高z-index确保它显示在其他元素上方 */
+    width: 90%;
+    max-width: 600px;
+    margin-bottom: 5px; /* 与道具栏标题保持一定距离 */
+    padding: 5px;
+}
+
+/* 重新调整道具栏容器为相对定位，以便让effects-container相对它定位 */
+#items-container {
+    width: 100%;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    margin-top: auto;
+    position: relative; /* 添加相对定位 */
 }
 
 .effect-indicator {
@@ -790,6 +807,7 @@ body {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
     transition: all 0.3s;
     overflow: hidden;
+    margin-bottom: 5px; /* 增加垂直间距 */
 }
 
 .effect-indicator.blessing {
@@ -1089,4 +1107,63 @@ body {
     .tutorial-content {
         width: 95%;
     }
+}
+
+/* 测试关卡屏幕 */
+#test-level-screen {
+    background: linear-gradient(to bottom, #1a2a3a, #2c3e50);
+    z-index: 8; /* 比普通屏幕和开始界面高，但比暂停屏幕低 */
+    display: none; /* 确保初始状态为不显示 */
+}
+
+#test-level-screen.active {
+    display: flex; /* 当激活时才显示为flex布局 */
+    animation: fadeIn 0.5s ease;
+    z-index: 8; /* 保持与上面定义的相同 */
+}
+
+#test-level-screen h2 {
+    font-size: 36px;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+    text-shadow: 0 0 10px rgba(52, 152, 219, 0.7);
+}
+
+.test-options {
+    width: 80%;
+    max-width: 500px;
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.option-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+}
+
+.option-group label {
+    margin-bottom: 5px;
+    font-size: 16px;
+}
+
+.option-group input, .option-group select {
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: var(--light-color);
+    font-family: 'ZCOOL QingKe HuangYou', sans-serif;
+    font-size: 16px;
+}
+
+.test-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
 }

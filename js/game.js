@@ -795,4 +795,103 @@ class HanoiRoguelike {
             }
         }, 1500);
     }
+    
+    // 开始测试关卡
+    startTestLevel(testConfig, blessing, curse) {
+        console.log('开始测试关卡:', testConfig);
+        
+        this.reset();
+        this.showScreen('game');
+        this.isPlaying = true;
+        
+        // 更新UI显示
+        document.getElementById('level-number').textContent = testConfig.level;
+        document.getElementById('moves-goal').textContent = testConfig.moveLimit;
+        
+        // 应用特殊配置
+        if (testConfig.specialConfig) {
+            if (testConfig.specialConfig.treasureLevel) {
+                document.getElementById('game-screen').classList.add('treasure-level');
+                
+                const specialEventMsg = document.getElementById('special-event-message') || 
+                    (() => {
+                        const msg = document.createElement('div');
+                        msg.id = 'special-event-message';
+                        msg.className = 'special-event-message';
+                        document.querySelector('.game-header').appendChild(msg);
+                        return msg;
+                    })();
+                    
+                specialEventMsg.textContent = '宝藏关卡';
+                specialEventMsg.classList.add('show', 'treasure-message');
+                
+                setTimeout(() => {
+                    specialEventMsg.classList.remove('show');
+                    specialEventMsg.classList.remove('treasure-message');
+                }, 5000);
+            }
+        }
+        
+        // 设置塔游戏
+        this.towerGame.setLevel(
+            testConfig.discCount, 
+            testConfig.moveLimit, 
+            testConfig.towerCount || 3,
+            testConfig
+        );
+        
+        // 设置并启动计时器
+        this.timer.setTimer(testConfig.timeLimit, () => this.onTimeUp());
+        this.timer.startTimer();
+        
+        // 清除之前的效果
+        this.effectsSystem.clearAllEffects();
+        
+        // 应用祝福和诅咒效果
+        if (blessing) {
+            this.applyBlessing(blessing);
+        }
+        
+        if (curse) {
+            this.applyCurse(curse);
+        }
+        
+        // 监听层级完成事件，测试关卡直接返回主菜单
+        const originalLevelCompletedHandler = document.listeners?.levelCompleted?.[0];
+        
+        if (originalLevelCompletedHandler) {
+            document.removeEventListener('levelCompleted', originalLevelCompletedHandler);
+        }
+        
+        const testLevelCompletedHandler = (e) => {
+            this.timer.stopTimer();
+            this.effectsSystem.clearAllEffects();
+            
+            document.getElementById('message').textContent = '测试关卡完成！';
+            
+            setTimeout(() => {
+                this.showStartScreen();
+                document.getElementById('message').textContent = '';
+                
+                // 恢复原有事件监听
+                document.removeEventListener('levelCompleted', testLevelCompletedHandler);
+                if (originalLevelCompletedHandler) {
+                    document.addEventListener('levelCompleted', originalLevelCompletedHandler);
+                }
+            }, 2000);
+            
+            playSound('level_complete');
+        };
+        
+        document.addEventListener('levelCompleted', testLevelCompletedHandler);
+        
+        // 存储绑定的事件处理程序以便后续恢复
+        if (!document.listeners) document.listeners = {};
+        document.listeners.levelCompleted = [testLevelCompletedHandler];
+        
+        // 确保游戏状态正确
+        this.isPaused = false;
+        
+        console.log('测试关卡已启动');
+    }
 }
