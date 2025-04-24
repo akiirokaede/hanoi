@@ -1127,47 +1127,76 @@ body {
 }
 
 #test-level-screen h2 {
-    font-size: 36px;
-    margin-bottom: 20px;
     color: var(--primary-color);
-    text-shadow: 0 0 10px rgba(52, 152, 219, 0.7);
+    margin-bottom: 20px;
+    text-align: center;
+    font-family: 'Orbitron', 'ZCOOL QingKe HuangYou', sans-serif;
 }
 
 .test-options {
-    width: 80%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
     max-width: 500px;
-    background-color: rgba(0, 0, 0, 0.2);
+    margin-bottom: 20px;
+    background-color: rgba(255, 255, 255, 0.05);
     padding: 20px;
     border-radius: 10px;
-    margin-bottom: 20px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 .option-group {
     display: flex;
-    flex-direction: column;
-    margin-bottom: 10px;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .option-group label {
-    margin-bottom: 5px;
+    font-weight: bold;
+    color: var(--secondary-color);
+    flex: 1;
+}
+
+.option-group input[type="number"],
+.option-group input[type="text"],
+.option-group select {
+    width: 120px;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    border-radius: 5px;
     font-size: 16px;
 }
 
-.option-group input, .option-group select {
-    padding: 8px;
-    border-radius: 5px;
-    border: none;
-    background-color: rgba(255, 255, 255, 0.2);
-    color: var(--light-color);
-    font-family: 'ZCOOL QingKe HuangYou', sans-serif;
-    font-size: 16px;
+.option-group input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--primary-color);
+}
+
+.advanced-options {
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 2px dashed rgba(255, 255, 255, 0.2);
+    width: 100%;
+}
+
+.advanced-options h3 {
+    color: var(--tertiary-color);
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 18px;
 }
 
 .test-buttons {
     display: flex;
+    gap: 15px;
     justify-content: center;
-    gap: 20px;
+    margin-top: 20px;
 }

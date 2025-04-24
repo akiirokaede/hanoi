@@ -56,7 +56,7 @@ function initTestLevelFeature(gameInstance) {
     
     // 开始测试关卡按钮点击事件
     startTestBtn.addEventListener('click', () => {
-        // 获取测试配置参数
+        // 获取基本测试配置参数
         const discCount = parseInt(document.getElementById('test-disc-count').value, 10);
         const towerCount = parseInt(document.getElementById('test-tower-count').value, 10);
         const moveLimit = parseInt(document.getElementById('test-move-limit').value, 10);
@@ -64,6 +64,14 @@ function initTestLevelFeature(gameInstance) {
         const specialType = document.getElementById('test-special-type').value;
         const blessing = document.getElementById('test-blessing').value;
         const curse = document.getElementById('test-curse').value;
+        
+        // 获取高级测试配置参数
+        const colorEnhancement = document.getElementById('test-color-enhancement').checked;
+        const initialHints = parseInt(document.getElementById('test-initial-hints').value, 10);
+        const layoutType = document.getElementById('test-layout-type').value;
+        const discSizeMultiplier = parseFloat(document.getElementById('test-disc-size-multiplier').value);
+        const towerHeightMultiplier = parseFloat(document.getElementById('test-tower-height-multiplier').value);
+        const scoreMultiplier = parseFloat(document.getElementById('test-score-multiplier').value);
         
         // 创建测试关卡配置
         const testLevelConfig = {
@@ -74,14 +82,27 @@ function initTestLevelFeature(gameInstance) {
             moveLimit: moveLimit,    // 移动次数限制
             timeLimit: timeLimit,    // 时间限制（秒）
             score: 100,              // 默认得分
+            scoreMultiplier: scoreMultiplier, // 分数倍数
+            specialEventName: specialType !== 'none' ? `测试: ${specialType}` : '测试关卡',
             specialConfig: {
                 treasureLevel: specialType === 'treasure',
                 dualTargets: specialType === 'dualTargets',
                 miniTower: specialType === 'miniTower',
                 specialDisc: specialType === 'specialDisc',
-                invisibleDiscs: specialType === 'invisibleDiscs'
+                invisibleDiscs: specialType === 'invisibleDiscs',
+                isTutorial: specialType === 'tutorial',
+                
+                // 添加高级配置选项
+                colorEnhancement: colorEnhancement,
+                initialHints: initialHints,
+                specialLayout: layoutType !== 'standard',
+                layoutType: layoutType,
+                discSizeMultiplier: discSizeMultiplier,
+                towerHeightMultiplier: towerHeightMultiplier
             }
         };
+        
+        console.log('测试关卡配置:', testLevelConfig);
         
         // 启动测试关卡
         testLevelScreen.classList.remove('active');
