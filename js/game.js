@@ -584,6 +584,9 @@ class HanoiRoguelike {
                         // 应用晕眩效果到圆盘
                         game.towerGame.applyDizzinessToDiscs();
                         
+                        // 创建晕眩诅咒的全屏遮罩层
+                        this.createDizzinessOverlay(game);
+                        
                         // 显示提示消息
                         const message = document.getElementById('message');
                         message.textContent = '晕眩诅咒生效！圆盘颜色开始变化。';
@@ -598,14 +601,42 @@ class HanoiRoguelike {
                         }, 3000);
                     },
                     onTick: (game) => {
-                        // 随机改变一些圆盘的色调
+                        // 随机改变一些圆盘的色调和宽度
                         if (Math.random() < 0.1) {
                             game.towerGame.discs.forEach(disc => {
                                 if (disc.element.classList.contains('dizzy') && Math.random() < 0.3) {
                                     const hue = Math.floor(Math.random() * 360);
                                     disc.element.style.backgroundColor = `hsl(${hue}, 80%, 60%)`;
+                                    
+                                    // 随机缩放圆盘宽度（不超过原始宽度）
+                                    const originalWidth = parseFloat(disc.element.dataset.originalWidth || disc.element.style.width);
+                                    const scaleRatio = 0.8 + Math.random() * 0.2; // 缩放比例在80%到100%之间
+                                    
+                                    // 添加丝滑的过渡效果
+                                    if (!disc.element.style.transition.includes('width')) {
+                                        disc.element.style.transition = `${disc.element.style.transition}, width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)`;
+                                    }
+                                    
+                                    disc.element.style.width = `${originalWidth * scaleRatio}%`;
+                                    
+                                    // 为每个圆盘添加独立的宽度脉动动画
+                                    if (!disc.widthPulseInterval) {
+                                        disc.widthPulseInterval = setInterval(() => {
+                                            if (disc.element && disc.element.parentNode) {
+                                                const pulseRatio = 0.85 + Math.random() * 0.15;
+                                                disc.element.style.width = `${originalWidth * pulseRatio}%`;
+                                            } else {
+                                                // 如果圆盘不再存在，清除间隔
+                                                clearInterval(disc.widthPulseInterval);
+                                                disc.widthPulseInterval = null;
+                                            }
+                                        }, 800 + Math.random() * 400); // 每0.8-1.2秒变化一次
+                                    }
                                 }
                             });
+                            
+                            // 更新遮罩层效果
+                            this.updateDizzinessOverlay();
                         }
                     },
                     onEnd: (game) => {
@@ -616,7 +647,21 @@ class HanoiRoguelike {
                             // 恢复原始颜色
                             const hue = (disc.size / game.towerGame.discCount) * 360;
                             disc.element.style.backgroundColor = `hsl(${hue}, 80%, 60%)`;
+                            
+                            // 恢复原始宽度
+                            if (disc.element.dataset.originalWidth) {
+                                disc.element.style.width = `${disc.element.dataset.originalWidth}%`;
+                            }
+                            
+                            // 清除宽度脉动计时器以停止宽度变化
+                            if (disc.widthPulseInterval) {
+                                clearInterval(disc.widthPulseInterval);
+                                disc.widthPulseInterval = null;
+                            }
                         });
+                        
+                        // 移除遮罩层
+                        this.removeDizzinessOverlay();
                         
                         // 显示提示消息
                         const message = document.getElementById('message');
@@ -1320,7 +1365,104 @@ class HanoiRoguelike {
                 id: "晕眩诅咒",
                 name: "晕眩诅咒",
                 description: "圆盘颜色混乱",
-                icon: "💫"
+                duration: curseDuration,
+                icon: "💫",
+                onStart: (game) => {
+                    // 应用晕眩效果到圆盘
+                    game.towerGame.applyDizzinessToDiscs();
+                    
+                    // 创建晕眩诅咒的全屏遮罩层
+                    this.createDizzinessOverlay(game);
+                    
+                    // 显示提示消息
+                    const message = document.getElementById('message');
+                    message.textContent = '晕眩诅咒生效！圆盘颜色开始变化。';
+                    message.classList.add('curse-message');
+                    setTimeout(() => {
+                        message.classList.remove('curse-message');
+                        setTimeout(() => {
+                            if (message.textContent.includes('晕眩诅咒')) {
+                                message.textContent = '';
+                            }
+                        }, 1000);
+                    }, 3000);
+                },
+                onTick: (game) => {
+                    // 随机改变一些圆盘的色调和宽度
+                    if (Math.random() < 0.1) {
+                        game.towerGame.discs.forEach(disc => {
+                            if (disc.element.classList.contains('dizzy') && Math.random() < 0.3) {
+                                const hue = Math.floor(Math.random() * 360);
+                                disc.element.style.backgroundColor = `hsl(${hue}, 80%, 60%)`;
+                                
+                                // 随机缩放圆盘宽度（不超过原始宽度）
+                                const originalWidth = parseFloat(disc.element.dataset.originalWidth || disc.element.style.width);
+                                const scaleRatio = 0.8 + Math.random() * 0.2; // 缩放比例在80%到100%之间
+                                
+                                // 添加丝滑的过渡效果
+                                if (!disc.element.style.transition.includes('width')) {
+                                    disc.element.style.transition = `${disc.element.style.transition}, width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)`;
+                                }
+                                
+                                disc.element.style.width = `${originalWidth * scaleRatio}%`;
+                                
+                                // 为每个圆盘添加独立的宽度脉动动画
+                                if (!disc.widthPulseInterval) {
+                                    disc.widthPulseInterval = setInterval(() => {
+                                        if (disc.element && disc.element.parentNode) {
+                                            const pulseRatio = 0.85 + Math.random() * 0.15;
+                                            disc.element.style.width = `${originalWidth * pulseRatio}%`;
+                                        } else {
+                                            // 如果圆盘不再存在，清除间隔
+                                            clearInterval(disc.widthPulseInterval);
+                                            disc.widthPulseInterval = null;
+                                        }
+                                    }, 800 + Math.random() * 400); // 每0.8-1.2秒变化一次
+                                }
+                            }
+                        });
+                        
+                        // 更新遮罩层效果
+                        this.updateDizzinessOverlay();
+                    }
+                },
+                onEnd: (game) => {
+                    // 移除所有圆盘的晕眩效果
+                    game.towerGame.discs.forEach(disc => {
+                        disc.removeDizziness();
+                        
+                        // 恢复原始颜色
+                        const hue = (disc.size / game.towerGame.discCount) * 360;
+                        disc.element.style.backgroundColor = `hsl(${hue}, 80%, 60%)`;
+                        
+                        // 恢复原始宽度
+                        if (disc.element.dataset.originalWidth) {
+                            disc.element.style.width = `${disc.element.dataset.originalWidth}%`;
+                        }
+                        
+                        // 清除宽度脉动计时器以停止宽度变化
+                        if (disc.widthPulseInterval) {
+                            clearInterval(disc.widthPulseInterval);
+                            disc.widthPulseInterval = null;
+                        }
+                    });
+                    
+                    // 移除遮罩层
+                    this.removeDizzinessOverlay();
+                    
+                    // 显示提示消息
+                    const message = document.getElementById('message');
+                    message.textContent = '晕眩诅咒已结束！';
+                    message.classList.add('blessing-message');
+                    setTimeout(() => {
+                        message.classList.remove('blessing-message');
+                        setTimeout(() => {
+                            if (message.textContent.includes('诅咒已结束')) {
+                                message.textContent = '';
+                            }
+                        }, 1000);
+                    }, 2000);
+                }
             }
         ];
         
@@ -1530,5 +1672,101 @@ class HanoiRoguelike {
         
         // 重置索引
         game.fogCurseState.coveredTowerIndex = -1;
+    }
+    
+    // 创建晕眩诅咒的全屏遮罩层
+    createDizzinessOverlay(game) {
+        // 先检查是否已经存在遮罩层
+        const existingOverlay = document.getElementById('dizziness-overlay');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+        
+        // 创建遮罩层元素
+        const overlay = document.createElement('div');
+        overlay.id = 'dizziness-overlay';
+        overlay.className = 'dizziness-overlay';
+        
+        // 设置遮罩层样式
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.pointerEvents = 'none'; // 允许点击穿透
+        overlay.style.zIndex = '50';
+        overlay.style.mixBlendMode = 'color-dodge'; // 混合模式使颜色效果更明显
+        overlay.style.opacity = '0.3'; // 初始低不透明度
+        overlay.style.background = 'radial-gradient(circle at center, rgba(255,0,0,0.4) 0%, rgba(0,255,255,0.3) 50%, rgba(255,0,255,0.4) 100%)';
+        overlay.style.animation = 'dizzy-background 15s infinite alternate';
+        overlay.style.transition = 'opacity 0.5s ease-in-out';
+        
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes dizzy-background {
+                0% { background-position: 0% 0%; filter: hue-rotate(0deg); }
+                25% { background-position: 100% 0%; filter: hue-rotate(90deg); }
+                50% { background-position: 100% 100%; filter: hue-rotate(180deg); }
+                75% { background-position: 0% 100%; filter: hue-rotate(270deg); }
+                100% { background-position: 0% 0%; filter: hue-rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // 将遮罩层添加到游戏区域
+        const gameArea = document.querySelector('.game-area');
+        if (gameArea) {
+            gameArea.appendChild(overlay);
+            
+            // 存储原始圆盘宽度，以便后续缩放
+            game.towerGame.discs.forEach(disc => {
+                if (!disc.element.dataset.originalWidth) {
+                    // 提取百分比值，去除%符号
+                    const widthStr = disc.element.style.width;
+                    const widthValue = parseFloat(widthStr);
+                    disc.element.dataset.originalWidth = widthValue;
+                }
+            });
+            
+            // 淡入效果
+            setTimeout(() => {
+                overlay.style.opacity = '0.6';
+            }, 10);
+        }
+    }
+    
+    // 更新晕眩诅咒遮罩层效果
+    updateDizzinessOverlay() {
+        const overlay = document.getElementById('dizziness-overlay');
+        if (overlay) {
+            // 随机改变遮罩层的色调和透明度
+            const hueRotate = Math.floor(Math.random() * 360);
+            const opacity = 0.4 + Math.random() * 0.3; // 透明度在0.4-0.7之间变化
+            
+            overlay.style.filter = `hue-rotate(${hueRotate}deg)`;
+            overlay.style.opacity = opacity.toString();
+            
+            // 随机改变背景位置，增加晕眩感
+            const posX = Math.floor(Math.random() * 100);
+            const posY = Math.floor(Math.random() * 100);
+            overlay.style.backgroundPosition = `${posX}% ${posY}%`;
+        }
+    }
+    
+    // 移除晕眩诅咒遮罩层
+    removeDizzinessOverlay() {
+        const overlay = document.getElementById('dizziness-overlay');
+        if (overlay) {
+            // 淡出效果
+            overlay.style.opacity = '0';
+            
+            // 动画结束后移除元素
+            setTimeout(() => {
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+            }, 500);
+        }
     }
 }
