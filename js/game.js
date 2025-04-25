@@ -1256,26 +1256,13 @@ class HanoiRoguelike {
     }
     
     // 显示提示（供道具使用）
-    showHint() {
-        this.towerGame.showHint();
+    showHint(forceShow = false) {
+        this.towerGame.showHint(forceShow);
     }
     
     // 自动移动（供道具使用）
     autoMove() {
-        const move = this.towerGame.getNextOptimalMove();
-        if (move) {
-            const fromTower = this.towerGame.towers[move.from];
-            const toTower = this.towerGame.towers[move.to];
-            
-            fromTower.highlight();
-            
-            setTimeout(() => {
-                this.towerGame.moveDisc(fromTower, toTower);
-            }, 500);
-        } else {
-            document.getElementById('message').textContent = '无法完成自动移动。';
-            setTimeout(() => document.getElementById('message').textContent = '', 2000);
-        }
+        this.towerGame.autoMove();
     }
     
     // 返回主菜单

@@ -80,7 +80,7 @@ class ItemSystem {
                 '显示最优移动路径',
                 createItemIcon('👁️', '#2ecc71'),
                 4,
-                () => this.game.showHint()
+                () => this.game.showHint(true)
             ),
             new Item(
                 ItemTypes.SHIELD,

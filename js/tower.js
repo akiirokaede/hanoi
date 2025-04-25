@@ -137,6 +137,11 @@ class Tower {
     removeHint() {
         this.element.classList.remove('hint', 'source', 'target');
     }
+
+    // 检查是否可以放置圆盘
+    canPlaceDisc(disc) {
+        return this.isEmpty() || disc.size < this.getTopDisc().size;
+    }
 }
 
 /**
@@ -288,6 +293,7 @@ class TowerGame {
         this.targetTower = 0; // 目标塔的索引，默认是最后一个塔
         this.isDiscMoving = false; // 添加状态标记，跟踪是否有圆盘正在移动
         this.hasSlownessCurse = false; // 添加标记，跟踪是否受到迟缓诅咒
+        this.moveHistory = []; // 添加移动历史记录
         
         // 不再在构造函数中初始化塔座，改为在setLevel方法中动态创建
     }
@@ -526,9 +532,10 @@ class TowerGame {
         }
     }
     
-    // 显示提示
-    showHint() {
-        if (this.availableHints <= 0) {
+    // 统一的提示功能入口
+    showHint(forceShow = false) {
+        // 如果不是强制显示（如洞察之眼道具），则检查提示次数
+        if (!forceShow && this.availableHints <= 0) {
             const message = document.getElementById('message');
             message.textContent = '没有可用的提示了';
             message.classList.add('hint-message');
@@ -538,7 +545,7 @@ class TowerGame {
             }, 2000);
             return;
         }
-
+        
         // 清除之前的提示
         this.towers.forEach(tower => tower.removeHint());
         
@@ -549,18 +556,20 @@ class TowerGame {
             this.towers[hintMove.from].addHint('source');
             this.towers[hintMove.to].addHint('target');
 
-            // 更新提示次数
-            this.availableHints--;
+            // 如果不是强制显示，则更新提示次数
+            if (!forceShow) {
+                this.availableHints--;
             const message = document.getElementById('message');
-            message.textContent = `将圆盘从第${hintMove.from + 1}个塔移动到第${hintMove.to + 1}个塔`;
+                message.textContent = `将圆盘从第${hintMove.from + 1}个塔移动到第${hintMove.to + 1}个塔`;
             message.classList.add('hint-message');
-
+            
             // 更新提示按钮文本
             const hintButton = document.getElementById('hint-button');
             if (hintButton) {
                 hintButton.textContent = `提示 (${this.availableHints})`;
-                if (this.availableHints <= 0) {
-                    hintButton.disabled = true;
+                    if (this.availableHints <= 0) {
+                        hintButton.disabled = true;
+                    }
                 }
             }
 
@@ -573,69 +582,391 @@ class TowerGame {
         }
 
         // 3秒后清除提示消息
-        setTimeout(() => {
+            setTimeout(() => {
             const message = document.getElementById('message');
-            message.classList.remove('hint-message');
-            message.textContent = '';
+                message.classList.remove('hint-message');
+                        message.textContent = '';
             
             // 清除高亮效果
             this.towers.forEach(tower => tower.removeHint());
-        }, 3000);
+            }, 3000);
     }
     
-    // 计算最优解的下一步移动
-    calculateOptimalNextMove() {
-        // 这是一个简化版的计算，实际最优解需要实现汉诺塔算法
-        // 找出可移动的最小圆盘
-        let fromTower = -1;
-        let smallestDisc = null;
+    // 计算最优下一步移动
+    getNextOptimalMove() {
+        const gameState = this.analyzeGameState();
         
-        // 找到最小圆盘所在的塔
-        for (let i = 0; i < this.towers.length; i++) {
-            const topDisc = this.towers[i].getTopDisc();
-            if (topDisc) {
-                if (!smallestDisc || topDisc.size < smallestDisc.size) {
-                    smallestDisc = topDisc;
-                    fromTower = i;
+        if (this.towers.length === 3) {
+            return this.solveStandardHanoi(gameState);
+        } else {
+            // 对于多塔，最优解非常复杂 (Frame-Stewart 算法)
+            // 这里采用一个启发式策略，旨在优先完成目标，减少卡顿
+            return this.solveMultiTowerHanoiHeuristic(gameState);
+        }
+    }
+    
+    // 标准3塔汉诺塔问题求解 (迭代方法)
+    solveStandardHanoi(gameState) {
+        const n = this.discCount;
+        // const totalMoves = Math.pow(2, n) - 1; // 总步数，可能用于其他逻辑，暂时保留
+        const currentMoveNumber = this.moveCount + 1; // 下一步是第几次移动
+
+        // 检查是否已完成
+        if (this.towers[this.targetTower].getDiscCount() === n && this.isTowerOrdered(this.towers[this.targetTower])) {
+            return null;
+        }
+
+        // 根据当前移动次数的奇偶性决定移动哪个圆盘
+        if (currentMoveNumber % 2 !== 0) {
+            // 奇数次移动：移动最小圆盘 (size 1)
+            const smallestDiscLocation = gameState.smallestDiscLocation;
+            if (smallestDiscLocation === -1) {
+                console.error("solveStandardHanoi: Cannot find smallest disc!");
+                return null; // 找不到最小圆盘，状态错误
+            }
+
+            const smallestDisc = this.towers[smallestDiscLocation].getTopDisc();
+            let target;
+
+            // 目标塔根据圆盘总数奇偶性不同
+            if (n % 2 !== 0) { // 奇数个圆盘: 0 -> target(2) -> 1 -> 0 (目标塔是 this.targetTower)
+                target = (smallestDiscLocation + 1) % 3;
+            } else { // 偶数个圆盘: 0 -> 1 -> target(2) -> 0
+                target = (smallestDiscLocation - 1 + 3) % 3; // 逆时针
+            }
+            
+            // 标准算法中，目标塔索引应该是计算出来的，而不是固定的 this.targetTower
+            // 例如，3盘奇数： 0->2, 2->1, 1->0
+            // 例如，4盘偶数： 0->1, 1->2, 2->0
+
+            // 检查预定移动是否合法且非重复
+            if (this.towers[target].canPlaceDisc(smallestDisc) && !this.isRepeatedMove(smallestDiscLocation, target)) {
+                 return { from: smallestDiscLocation, to: target };
+            } else {
+                 // 如果预定移动不可行（通常是因为 isRepeatedMove），严格算法下应该停止或表明卡住
+                 // 不再尝试 alternativeTarget 或调用 findNonSmallestDiscMove
+                 console.warn(`solveStandardHanoi (奇数步 ${currentMoveNumber}): 预定移动 ${smallestDiscLocation}->${target} 被阻止 (重复? ${this.isRepeatedMove(smallestDiscLocation, target)})`);
+                 return null; 
+            }
+
+        } else {
+            // 偶数次移动：在非最小圆盘所在的两个塔之间进行唯一可能的移动
+            return this.findNonSmallestDiscMove(gameState);
+        }
+    }
+
+    // 寻找非最小圆盘的移动 (用于3塔)
+    findNonSmallestDiscMove(gameState) {
+        const smallestDiscLocation = gameState.smallestDiscLocation;
+        if (smallestDiscLocation === -1) return null; // 确保最小盘位置有效
+        
+        let tower1 = -1, tower2 = -1;
+
+        // 找到两个不包含最小圆盘的塔
+        for (let i = 0; i < 3; i++) {
+            if (i !== smallestDiscLocation) {
+                if (tower1 === -1) {
+                    tower1 = i;
+                } else {
+                    tower2 = i;
+                    break;
                 }
             }
         }
         
-        if (fromTower === -1 || !smallestDisc) return null;
-        
-        // 确定目标塔 - 简单策略：
-        // 如果是偶数圆盘，尝试向右移动；如果是奇数，尝试向左移动
-        // 这不是完美的汉诺塔解法，但对于提示已足够
-        let toTower;
-        if (this.discCount % 2 === 0) {
-            // 尝试向右移动（或环绕到第一个塔）
-            toTower = (fromTower + 1) % this.towers.length;
-            // 如果右边塔不能放置，尝试另一个方向
-            if (!this.towers[toTower].canPlaceDisc(smallestDisc)) {
-                toTower = (fromTower + this.towers.length - 1) % this.towers.length;
-            }
-        } else {
-            // 尝试向左移动（或环绕到最后一个塔）
-            toTower = (fromTower + this.towers.length - 1) % this.towers.length;
-            // 如果左边塔不能放置，尝试另一个方向
-            if (!this.towers[toTower].canPlaceDisc(smallestDisc)) {
-                toTower = (fromTower + 1) % this.towers.length;
-            }
+        if (tower1 === -1 || tower2 === -1) {
+             console.error("findNonSmallestDiscMove: Couldn't find two towers without smallest disc!");
+             return null; // 状态错误
         }
-        
-        // 检查目标塔是否可以放置该圆盘
-        if (this.towers[toTower].canPlaceDisc(smallestDisc)) {
-            return { fromTower, toTower };
+
+        const tower1Obj = this.towers[tower1];
+        const tower2Obj = this.towers[tower2];
+
+        // 检查从 tower1 移动到 tower2 是否可能且非重复
+        if (!tower1Obj.isEmpty() && tower2Obj.canPlaceDisc(tower1Obj.getTopDisc()) && !this.isRepeatedMove(tower1, tower2)) {
+             return { from: tower1, to: tower2 };
         }
-        
-        // 如果以上策略都不可行，找出任何可以放置的塔
+
+        // 检查从 tower2 移动到 tower1 是否可能且非重复
+        if (!tower2Obj.isEmpty() && tower1Obj.canPlaceDisc(tower2Obj.getTopDisc()) && !this.isRepeatedMove(tower2, tower1)) {
+              return { from: tower2, to: tower1 };
+        }
+
+        // 如果两个方向都不可行（因为重复或其他原因），严格算法下应返回 null
+        console.warn(`findNonSmallestDiscMove (偶数步): 两个非最小盘塔 (${tower1}, ${tower2}) 之间无合法非重复移动。`);
+        return null; 
+
+    }
+    
+    // 多塔汉诺塔问题的启发式求解策略
+    solveMultiTowerHanoiHeuristic(gameState) {
+        const n = this.discCount;
+        const targetTowerIndex = this.targetTower;
+
+        // 0. 如果已完成，返回 null
+        if (this.towers[targetTowerIndex].getDiscCount() === n && this.isTowerOrdered(this.towers[targetTowerIndex])) {
+             return null;
+        }
+
+        // 1. 优先：将任何塔顶圆盘移动到目标塔 (如果合法且有意义)
         for (let i = 0; i < this.towers.length; i++) {
-            if (i !== fromTower && this.towers[i].canPlaceDisc(smallestDisc)) {
-                return { fromTower, toTower: i };
+            if (i === targetTowerIndex || this.towers[i].isEmpty()) continue;
+            
+            const sourceTower = this.towers[i];
+            const targetTower = this.towers[targetTowerIndex];
+            const topDisc = sourceTower.getTopDisc();
+
+            if (targetTower.canPlaceDisc(topDisc)) {
+                 // 检查移动是否有意义：
+                 // - 目标塔为空
+                 // - 或者，移动的圆盘比目标塔顶圆盘小1 (形成连续)
+                 // - 或者，这是游戏后期，目标塔已经接近完成
+                 const isMeaningful = targetTower.isEmpty() || 
+                                      topDisc.size === targetTower.getTopDisc().size - 1 ||
+                                      (gameState.isNearingCompletion && gameState.discsOnTargetTower > n / 2);
+
+                 if (isMeaningful && !this.isRepeatedMove(i, targetTowerIndex)) {
+                     console.log("Heuristic: Move to target", { from: i, to: targetTowerIndex });
+                     return { from: i, to: targetTowerIndex };
+                 }
+            }
+        }
+
+        // 2. 次优先：如果最大圆盘 (size n) 不在目标塔，为其清路
+        const largestDiscLocation = gameState.largestDiscLocation;
+        if (largestDiscLocation !== targetTowerIndex) {
+            const towerWithLargest = this.towers[largestDiscLocation];
+            if (towerWithLargest.getTopDisc().size !== n) { // 最大圆盘不在顶部
+                const blockingDisc = towerWithLargest.getTopDisc();
+                
+                // 寻找最佳目标塔来移动障碍圆盘
+                // 优先选择空塔（非源塔、非目标塔）
+                let bestTarget = -1;
+                for (const emptyTowerIdx of gameState.emptyTowers) {
+                     if (emptyTowerIdx !== largestDiscLocation && emptyTowerIdx !== targetTowerIndex) {
+                          bestTarget = emptyTowerIdx;
+                          break;
+                     }
+                }
+                
+                // 如果没有合适的空塔，选择一个可以放置且非目标塔的塔
+                if (bestTarget === -1) {
+                     for (let j = 0; j < this.towers.length; j++) {
+                          if (j === largestDiscLocation || j === targetTowerIndex) continue;
+                          if (this.towers[j].canPlaceDisc(blockingDisc) && !this.isRepeatedMove(largestDiscLocation, j)) {
+                               bestTarget = j;
+                               break;
+                          }
+                     }
+                }
+
+                // 如果找到目标，移动障碍圆盘
+                if (bestTarget !== -1 && !this.isRepeatedMove(largestDiscLocation, bestTarget)) {
+                     console.log("Heuristic: Clear path for largest disc", { from: largestDiscLocation, to: bestTarget });
+                     return { from: largestDiscLocation, to: bestTarget };
+                }
+            } else { // 最大圆盘在顶部，尝试移动到目标塔
+                 if (this.towers[targetTowerIndex].canPlaceDisc(towerWithLargest.getTopDisc()) && !this.isRepeatedMove(largestDiscLocation, targetTowerIndex)) {
+                      console.log("Heuristic: Move largest disc to target", { from: largestDiscLocation, to: targetTowerIndex });
+                      return { from: largestDiscLocation, to: targetTowerIndex };
+                 }
+            }
+        }
+
+        // 3. 再次尝试移动最小圆盘 (size 1)
+        //    - 寻找一个能让它更接近目标塔的移动
+        //    - 或者至少移动到一个非重复的位置
+        const smallestDiscLocation = gameState.smallestDiscLocation;
+        if (smallestDiscLocation !== -1) {
+             const smallestDisc = this.towers[smallestDiscLocation].getTopDisc();
+             let bestSmallestTarget = -1;
+             
+             // 优先移向目标塔（如果可能）
+              if (this.towers[targetTowerIndex].canPlaceDisc(smallestDisc) && !this.isRepeatedMove(smallestDiscLocation, targetTowerIndex)) {
+                  bestSmallestTarget = targetTowerIndex;
+        } else {
+                  // 否则，移动到任何其他合法的、非重复的塔
+                   for (let j = 0; j < this.towers.length; j++) {
+                        if (j === smallestDiscLocation) continue;
+                        if (this.towers[j].canPlaceDisc(smallestDisc) && !this.isRepeatedMove(smallestDiscLocation, j)) {
+                             bestSmallestTarget = j;
+                             break; // 找到一个就行
+                        }
+                   }
+              }
+              
+              if (bestSmallestTarget !== -1) {
+                   console.log("Heuristic: Move smallest disc", { from: smallestDiscLocation, to: bestSmallestTarget });
+                   return { from: smallestDiscLocation, to: bestSmallestTarget };
+              }
+        }
+
+
+        // 4. 后备：进行任何合法的、非重复的移动
+        const fallbackMove = this.findAnyValidMove(gameState);
+         if (fallbackMove) {
+             console.log("Heuristic: Fallback move", fallbackMove);
+            return fallbackMove;
+         }
+
+        // 5. 如果完全卡住，返回 null
+        console.error("Heuristic: No valid move found!");
+        return null;
+    }
+    
+    // 寻找任何有效的移动 (可选择排除某些塔)
+    findAnyValidMove(gameState, excludedTowers = []) {
+        for (let i = 0; i < this.towers.length; i++) {
+            if (this.towers[i].isEmpty() || excludedTowers.includes(i)) continue;
+            
+            const topDisc = this.towers[i].getTopDisc();
+            
+            for (let j = 0; j < this.towers.length; j++) {
+                if (i === j || excludedTowers.includes(j)) continue;
+                
+                if (this.towers[j].canPlaceDisc(topDisc) && !this.isRepeatedMove(i, j)) {
+                    return { from: i, to: j };
+                }
+            }
+        }
+        return null;
+    }
+
+    // 分析当前游戏状态
+    analyzeGameState() {
+        const state = {
+            towerStates: [],
+            smallestDiscLocation: -1,
+            smallestDiscSize: Infinity,
+            largestDiscCorrectlyPlaced: false,
+            discsOnTargetTower: 0,
+            isNearingCompletion: false,
+            largestDiscLocation: -1,
+            largestDiscSize: 0,
+            emptyTowers: [],
+            orderedTowers: [],
+            disorderedTowers: []
+        };
+        
+        // 找到最小和最大圆盘的尺寸
+         let minSize = Infinity;
+         let maxSize = 0;
+         this.discs.forEach(d => {
+             if(d.size < minSize) minSize = d.size;
+             if(d.size > maxSize) maxSize = d.size;
+         });
+         state.smallestDiscSize = minSize;
+         state.largestDiscSize = maxSize;
+
+
+        for (let i = 0; i < this.towers.length; i++) {
+            const tower = this.towers[i];
+            const discs = tower.discs;
+            const isEmpty = tower.isEmpty();
+            const topDisc = isEmpty ? null : tower.getTopDisc();
+            const isOrdered = this.isTowerOrdered(tower);
+            const discCount = discs.length;
+
+            state.towerStates.push({
+                index: i,
+                isEmpty: isEmpty,
+                topDiscSize: isEmpty ? Infinity : topDisc.size,
+                discCount: discCount,
+                isOrdered: isOrdered,
+                discs: [...discs] // 浅拷贝
+            });
+
+            if (isEmpty) {
+                state.emptyTowers.push(i);
+            }
+            
+            if (isOrdered) {
+                state.orderedTowers.push(i);
+            } else {
+                state.disorderedTowers.push(i);
+            }
+
+            if (!isEmpty) {
+                // 更新最小圆盘位置
+                if (topDisc.size === state.smallestDiscSize) {
+                    state.smallestDiscLocation = i;
+                }
+                // 更新最大圆盘位置 (检查基座圆盘)
+                 if (discs.length > 0 && discs[0].size === state.largestDiscSize) {
+                     state.largestDiscLocation = i;
+                 }
+            }
+
+            if (i === this.targetTower) {
+                state.discsOnTargetTower = discCount;
+                if (discCount > 0 && discs[0].size === state.largestDiscSize && isOrdered) { // 确保最大圆盘在底部且有序
+                    state.largestDiscCorrectlyPlaced = true;
+                }
+            }
+        }
+
+        state.isNearingCompletion = (
+            state.discsOnTargetTower > this.discCount / 2 || 
+            (state.largestDiscCorrectlyPlaced && state.discsOnTargetTower > 1) ||
+            (state.towerStates[this.targetTower].isOrdered && state.discsOnTargetTower > 0)
+        );
+        
+        // 确保 largestDiscLocation 被正确设置
+        if (state.largestDiscLocation === -1) {
+             for (let i = 0; i < state.towerStates.length; i++) {
+                 const towerState = state.towerStates[i];
+                 if (towerState.discCount > 0 && towerState.discs[0].size === state.largestDiscSize) {
+                      state.largestDiscLocation = i;
+                      break;
+                 }
+             }
+        }
+
+
+        return state;
+    }
+
+    // 检查塔上的圆盘是否有序（从大到小）
+    isTowerOrdered(tower) {
+        const discs = tower.discs;
+        if (discs.length <= 1) return true;
+        
+        for (let i = 0; i < discs.length - 1; i++) {
+            // 严格检查，底部圆盘必须最大
+             if (i === 0 && discs[i].size < discs[i+1].size) return false;
+             // 其他圆盘只需满足上小下大
+             if (i > 0 && discs[i].size > discs[i-1].size) return false; // 检查是否比下面的大
+             if (discs[i].size < discs[i + 1].size) { // 检查是否比上面的小
+                return false;
             }
         }
         
-        return null; // 无法找到合法移动
+        return true;
+    }
+
+    // 记录移动历史 (保持不变)
+    recordMove(from, to) {
+        this.moveHistory.push({
+            from,
+            to,
+            timestamp: Date.now()
+        });
+        
+        // 只保留最近的10次移动
+        if (this.moveHistory.length > 10) {
+            this.moveHistory.shift();
+        }
+    }
+    
+    // 检查是否重复移动 (修改为只检查最后一次)
+    isRepeatedMove(from, to) {
+        // 只检查最近1次移动来阻止直接来回移动 A -> B -> A
+        const lastMove = this.moveHistory.length > 0 ? this.moveHistory[this.moveHistory.length - 1] : null;
+        
+        if (lastMove) {
+            return lastMove.from === to && lastMove.to === from;
+        }
+        return false; // 没有历史记录，不重复
     }
 
     // 移动圆盘
@@ -645,19 +976,15 @@ class TowerGame {
             if (toTower.isEmpty() || disc.size < toTower.getTopDisc().size) {
                 const movedDisc = fromTower.removeTopDisc();
                 
+                // 记录移动历史
+                this.recordMove(this.towers.indexOf(fromTower), this.towers.indexOf(toTower));
+                
                 // 创建自然掉落动画，首先将圆盘移动到目标塔的顶部
                 // 然后通过动画让它落到正确的位置
                 this.animateDiscMove(movedDisc, toTower);
                 
                 fromTower.unhighlight();
                 this.selectedTower = null;
-                
-            } else {
-                playSound('error');
-                document.getElementById('message').textContent = '不能将大圆盘放在小圆盘上！';
-                setTimeout(() => {
-                    document.getElementById('message').textContent = '';
-                }, 2000);
             }
         }
     }
@@ -1011,617 +1338,60 @@ class TowerGame {
         this.levelCompleted = false;
         this.isDiscMoving = false; // 重置圆盘移动状态
         this.hasSlownessCurse = false; // 重置迟缓诅咒状态
+        this.moveHistory = []; // 清空移动历史
         
         // 重置CSS变量为默认值
         document.documentElement.style.setProperty('--disc-move-speed', '0.3s');
         document.documentElement.style.setProperty('--disc-transition', 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)');
     }
     
-    // 自动求解 (供洞察之眼道具使用)
-    showHint() {
-        if (this.availableHints <= 0) {
+    // 自动移动（供魔法棒道具使用）
+    autoMove() {
+        const move = this.getNextOptimalMove();
+        if (move) {
+            const fromTower = this.towers[move.from];
+            const toTower = this.towers[move.to];
+            
+            // 显示移动提示
+            fromTower.addHint('source');
+            toTower.addHint('target');
+            
+            // 延迟执行移动
+            setTimeout(() => {
+                this.moveDisc(fromTower, toTower);
+                // 清除提示效果
+                fromTower.removeHint();
+                toTower.removeHint();
+            }, 500);
+                } else {
             const message = document.getElementById('message');
-            message.textContent = '没有可用的提示了';
+            message.textContent = '无法完成自动移动';
             message.classList.add('hint-message');
             setTimeout(() => {
                 message.classList.remove('hint-message');
                 message.textContent = '';
             }, 2000);
-            return;
         }
+    }
 
-        // 清除之前的提示
-        this.towers.forEach(tower => tower.removeHint());
-        
-        // 获取下一个最优移动
-        const hintMove = this.getNextOptimalMove();
-        if (hintMove) {
-            // 添加新的提示
-            this.towers[hintMove.from].addHint('source');
-            this.towers[hintMove.to].addHint('target');
-
-            // 更新提示次数
-            this.availableHints--;
-            const message = document.getElementById('message');
-            message.textContent = `将圆盘从第${hintMove.from + 1}个塔移动到第${hintMove.to + 1}个塔`;
-            message.classList.add('hint-message');
-
-            // 更新提示按钮文本
-            const hintButton = document.getElementById('hint-button');
-            if (hintButton) {
-                hintButton.textContent = `提示 (${this.availableHints})`;
-                if (this.availableHints <= 0) {
-                    hintButton.disabled = true;
-                }
-            }
-
-            // 播放提示音效
-            playHintSound();
-        } else {
-            const message = document.getElementById('message');
-            message.textContent = '无法提供提示';
-            message.classList.add('hint-message');
-        }
-
-        // 3秒后清除提示消息
-        setTimeout(() => {
-            const message = document.getElementById('message');
-            message.classList.remove('hint-message');
-            message.textContent = '';
-            
-            // 清除高亮效果
-            this.towers.forEach(tower => tower.removeHint());
-        }, 3000);
-    }
-    
-    // 计算最优下一步移动
-    getNextOptimalMove() {
-        const towerCount = this.towers.length;
-        
-        // ======= 标准3塔汉诺塔处理（保留原有代码） =======
-        if (towerCount === 3) {
-            // 如果是游戏开始，提示从第一个塔移动到目标塔或中间塔
-            if (this.moveCount === 0) {
-                return { from: 0, to: this.discCount % 2 === 0 ? 1 : 2 };
-            }
-            
-            // 寻找可以移动的最小圆盘
-            let smallestDiscTower = -1;
-            let smallestDiscSize = Infinity;
-            
-            for (let i = 0; i < this.towers.length; i++) {
-                const topDisc = this.towers[i].getTopDisc();
-                if (topDisc && topDisc.size < smallestDiscSize) {
-                    smallestDiscSize = topDisc.size;
-                    smallestDiscTower = i;
-                }
-            }
-            
-            if (smallestDiscTower >= 0) {
-                // 找到最小圆盘可以移动的塔座
-                const parity = this.discCount % 2;
-                let targetTower;
-                
-                if (parity === 0) { // 圆盘数为偶数
-                    targetTower = (smallestDiscTower + 1) % 3;
-                } else { // 圆盘数为奇数
-                    targetTower = (smallestDiscTower + 2) % 3;
-                }
-                
-                // 检查目标塔是否可以放置该圆盘
-                const targetTopDisc = this.towers[targetTower].getTopDisc();
-                if (!targetTopDisc || smallestDiscSize < targetTopDisc.size) {
-                    return { from: smallestDiscTower, to: targetTower };
-                } else {
-                    // 如果不能放在首选目标塔，尝试第三个塔
-                    const thirdTower = 3 - smallestDiscTower - targetTower;
-                    const thirdTopDisc = this.towers[thirdTower].getTopDisc();
-                    if (!thirdTopDisc || smallestDiscSize < thirdTopDisc.size) {
-                        return { from: smallestDiscTower, to: thirdTower };
-                    }
-                }
-            }
-        } 
-        // ======= 多塔汉诺塔处理（全新实现） =======
-        else {
-            // 多塔汉诺塔需要进行状态分析，基于Frame-Stewart算法的变体
-            
-            // 1. 首先分析当前游戏状态
-            const gameState = this.analyzeGameState();
-            
-            // 2. 如果是游戏开始状态，使用Frame-Stewart算法的起始规则
-            if (this.moveCount === 0) {
-                // 在多塔情况下，最佳策略通常是将除了最大的几个圆盘外的其他圆盘
-                // 先移动到中间塔，所以从第一个圆盘开始移动
-                return { from: 0, to: 1 };
-            }
-            
-            // 3. 检查是否接近完成状态
-            if (gameState.isNearingCompletion) {
-                return this.getMoveForCompletionPhase(gameState);
-            }
-            
-            // 4. 尝试使用Frame-Stewart启发式规则
-            const frameStewartMove = this.getFrameStewartMove(gameState);
-            if (frameStewartMove) {
-                return frameStewartMove;
-            }
-            
-            // 5. 后备策略：找到最小圆盘并尝试向目标塔移动
-            // 如果无法直接移到目标塔，则寻找任何可行移动
-            return this.getFallbackMove(gameState);
-        }
-        
-        return null;
-    }
-    
-    // 分析当前游戏状态
-    analyzeGameState() {
-        const state = {
-            towerStates: [],
-            smallestDiscLocation: -1,
-            smallestDiscSize: Infinity,
-            largestDiscCorrectlyPlaced: false,
-            discsOnTargetTower: 0,
-            isNearingCompletion: false
-        };
-        
-        // 获取每个塔的状态
-        for (let i = 0; i < this.towers.length; i++) {
-            const tower = this.towers[i];
-            const discs = tower.discs;
-            
-            // 记录塔的状态
-            state.towerStates.push({
-                index: i,
-                isEmpty: tower.isEmpty(),
-                topDiscSize: tower.isEmpty() ? Infinity : tower.getTopDisc().size,
-                discCount: discs.length,
-                isOrdered: this.isTowerOrdered(tower),
-                discs: [...discs]
-            });
-            
-            // 找到最小圆盘位置
-            if (!tower.isEmpty() && tower.getTopDisc().size < state.smallestDiscSize) {
-                state.smallestDiscSize = tower.getTopDisc().size;
-                state.smallestDiscLocation = i;
-            }
-            
-            // 检查目标塔状态
-            if (i === this.targetTower) {
-                state.discsOnTargetTower = discs.length;
-                
-                // 检查最大圆盘是否在目标塔底部
-                if (discs.length > 0 && discs[0].size === this.discCount) {
-                    state.largestDiscCorrectlyPlaced = true;
-                }
-            }
-        }
-        
-        // 确定是否接近完成状态（超过一半的圆盘已在目标塔上）
-        state.isNearingCompletion = (state.discsOnTargetTower > this.discCount / 2) || 
-                                  (state.largestDiscCorrectlyPlaced && state.discsOnTargetTower > 1);
-        
-        return state;
-    }
-    
-    // 检查塔上的圆盘是否有序（从大到小）
-    isTowerOrdered(tower) {
-        const discs = tower.discs;
-        if (discs.length <= 1) return true;
-        
-        for (let i = 0; i < discs.length - 1; i++) {
-            if (discs[i].size < discs[i + 1].size) {
-                return false;
-            }
-        }
-        return true;
-    }
-    
-    // 获取接近完成阶段的最佳移动
-    getMoveForCompletionPhase(gameState) {
-        // 当大部分圆盘已在目标塔时，专注于将剩余圆盘移至目标塔
-        
-        const targetTowerState = gameState.towerStates[this.targetTower];
-        
-        // 计算出下一个应该移动到目标塔的圆盘大小
-        const nextExpectedSize = this.discCount - targetTowerState.discCount;
-        if (nextExpectedSize <= 0) return null;
-        
-        // 寻找包含下一个要移动圆盘的塔
-        for (let i = 0; i < gameState.towerStates.length; i++) {
-            if (i === this.targetTower) continue;
-            
-            const towerState = gameState.towerStates[i];
-            if (towerState.isEmpty) continue;
-            
-            const topDisc = this.towers[i].getTopDisc();
-            
-            // 如果找到了下一个应该移动的圆盘，且可以直接移动到目标塔
-            if (topDisc.size === nextExpectedSize && 
-                (targetTowerState.isEmpty || topDisc.size < targetTowerState.topDiscSize)) {
-                return { from: i, to: this.targetTower };
-            }
-        }
-        
-        // 如果找不到直接移动，尝试整理其他塔以便后续移动
-        return this.getPreparatoryMove(gameState, nextExpectedSize);
-    }
-    
-    // 为后续移动做准备的移动
-    getPreparatoryMove(gameState, targetSize) {
-        // 首先尝试移动阻碍目标圆盘的圆盘
-        for (let i = 0; i < gameState.towerStates.length; i++) {
-            const towerState = gameState.towerStates[i];
-            if (towerState.isEmpty) continue;
-            
-            // 检查这个塔是否包含目标圆盘但被其他圆盘阻挡
-            const hasTargetDisc = towerState.discs.some(disc => disc.size === targetSize);
-            if (hasTargetDisc && towerState.topDiscSize !== targetSize) {
-                // 找一个可以接收顶部圆盘的塔
-                const topDisc = this.towers[i].getTopDisc();
-                for (let j = 0; j < gameState.towerStates.length; j++) {
-                    if (j === i) continue;
-                    if (j === this.targetTower && !gameState.isNearingCompletion) continue; // 避免使用目标塔作为中转
-                    
-                    const destTowerState = gameState.towerStates[j];
-                    if (destTowerState.isEmpty || topDisc.size < destTowerState.topDiscSize) {
-                        return { from: i, to: j };
-                    }
-                }
-            }
-        }
-        
-        // 如果没有找到特定的准备移动，使用最小圆盘移动策略
-        return this.getMoveForSmallestDisc(gameState);
-    }
-    
-    // 基于Frame-Stewart算法的移动策略
-    getFrameStewartMove(gameState) {
-        // Frame-Stewart算法的核心思想是将问题分解为更小的子问题
-        
-        // 1. 如果最大圆盘还没有移动到目标塔，优先为其清理路径
-        if (!gameState.largestDiscCorrectlyPlaced) {
-            // 检查源塔（通常是第一个塔）是否只剩下最大圆盘
-            const sourceTower = this.towers[0];
-            if (sourceTower.getDiscCount() === 1 && sourceTower.getTopDisc().size === this.discCount) {
-                // 现在可以将最大圆盘直接移动到目标塔
-                return { from: 0, to: this.targetTower };
-            }
-            
-            // 如果源塔有多个圆盘，需要先移走上面的小圆盘
-            if (sourceTower.getDiscCount() > 1 && sourceTower.discs[0].size === this.discCount) {
-                // 移动顶部圆盘到任何可行的中间塔
-                const topDisc = sourceTower.getTopDisc();
-                for (let i = 1; i < this.towers.length; i++) {
-                    if (i === this.targetTower && gameState.towerStates[i].discCount > 0) continue; // 避免阻塞目标塔
-                    
-                    const tower = this.towers[i];
-                    if (tower.isEmpty() || topDisc.size < tower.getTopDisc().size) {
-                        return { from: 0, to: i };
-                    }
-                }
-            }
-        }
-        
-        // 2. 计算Frame-Stewart的最优k值（分配到辅助塔的圆盘数量）
-        const n = this.discCount;
-        const m = this.towers.length;
-        
-        // Frame-Stewart算法的k值计算，这是一个近似最优解
-        let k = Math.floor(n - Math.sqrt(2 * n - 0.5) + 0.5);
-        // 对于较小的问题，直接使用查表法获取最优k值
-        if (n <= 10 && m === 4) {
-            // 4塔汉诺塔的最优k值表（针对n=1到10）
-            const optimalK = [0, 0, 1, 2, 2, 3, 3, 4, 4, 4];
-            k = optimalK[n - 1];
-        }
-        
-        // 3. 根据当前状态确定处于Frame-Stewart算法的哪个阶段
-        // 阶段1：将前k个圆盘移动到辅助塔
-        // 阶段2：将最大的n-k个圆盘按标准方式移到目标塔
-        // 阶段3：将k个圆盘从辅助塔移到目标塔
-        
-        // 确定当前所处阶段
-        let currentPhase = 1;
-        
-        // 检查源塔和辅助塔的状态来确定阶段
-        const sourceTowerDiscs = this.towers[0].getDiscCount();
-        let auxiliaryTower = -1;
-        
-        // 查找包含较小圆盘的辅助塔
-        for (let i = 1; i < this.towers.length - 1; i++) {
-            if (this.towers[i].getDiscCount() > 0) {
-                if (auxiliaryTower === -1 || 
-                    this.towers[i].getDiscCount() > this.towers[auxiliaryTower].getDiscCount()) {
-                    auxiliaryTower = i;
-                }
-            }
-        }
-        
-        // 根据圆盘分布判断阶段
-        if (auxiliaryTower !== -1 && this.towers[auxiliaryTower].getDiscCount() >= k) {
-            // 如果辅助塔已有k个或更多圆盘，说明处于阶段2或3
-            if (sourceTowerDiscs <= this.discCount - k) {
-                // 源塔剩余圆盘小于等于n-k，说明阶段1已完成
-                // 检查目标塔的圆盘数量来判断是阶段2还是阶段3
-                const targetTowerDiscs = this.towers[this.targetTower].getDiscCount();
-                if (targetTowerDiscs < this.discCount - k) {
-                    currentPhase = 2; // 还在移动大圆盘
-                } else {
-                    currentPhase = 3; // 开始从辅助塔移动小圆盘
-                }
-            }
-        }
-        
-        // 4. 根据当前阶段执行相应的移动策略
-        switch (currentPhase) {
-            case 1:
-                // 阶段1：将前k个圆盘移动到最佳辅助塔
-                return this.getPhase1Move(gameState, k, auxiliaryTower);
-            case 2:
-                // 阶段2：将大圆盘移动到目标塔
-                return this.getPhase2Move(gameState, k);
-            case 3:
-                // 阶段3：将辅助塔上的k个小圆盘移动到目标塔
-                return this.getPhase3Move(gameState, auxiliaryTower);
-        }
-        
-        // 如果无法确定特定的Frame-Stewart移动，使用基于最小圆盘的策略
-        return this.getMoveForSmallestDisc(gameState);
-    }
-    
-    // Frame-Stewart算法阶段1：将前k个小圆盘移动到辅助塔
-    getPhase1Move(gameState, k, auxiliaryTower) {
-        // 如果还没有确定辅助塔，选择一个空塔或顶部圆盘最大的塔
-        if (auxiliaryTower === -1) {
-            let bestTower = -1;
-            let bestTowerTopSize = 0;
-            
-            // 寻找最佳辅助塔（不包括源塔和目标塔）
-            for (let i = 1; i < this.towers.length - 1; i++) {
-                if (this.towers[i].isEmpty()) {
-                    auxiliaryTower = i;
-                    break;
-                } else {
-                    const topSize = this.towers[i].getTopDisc().size;
-                    if (topSize > bestTowerTopSize) {
-                        bestTowerTopSize = topSize;
-                        bestTower = i;
-                    }
-                }
-            }
-            
-            if (auxiliaryTower === -1) {
-                auxiliaryTower = bestTower !== -1 ? bestTower : 1;
-            }
-        }
-        
-        // 源塔上的小圆盘还没有全部移到辅助塔
-        const sourceTower = this.towers[0];
-        
-        // 如果源塔为空或只有大圆盘，转到阶段2
-        if (sourceTower.isEmpty() || 
-            (sourceTower.getDiscCount() === 1 && sourceTower.getTopDisc().size > k)) {
-            return this.getPhase2Move(gameState, k);
-        }
-        
-        // 尝试将小圆盘从源塔移动到辅助塔
-        const topDisc = sourceTower.getTopDisc();
-        if (topDisc && topDisc.size <= k) {
-            if (this.towers[auxiliaryTower].isEmpty() || 
-                topDisc.size < this.towers[auxiliaryTower].getTopDisc().size) {
-                return { from: 0, to: auxiliaryTower };
-            }
-        }
-        
-        // 如果无法直接从源塔移到辅助塔，寻找其他合法移动
-        // 优先考虑帮助将小圆盘搬运到辅助塔的移动
-        for (let i = 0; i < this.towers.length; i++) {
-            if (i === auxiliaryTower || this.towers[i].isEmpty()) continue;
-            
-            const disc = this.towers[i].getTopDisc();
-            if (disc && disc.size <= k) {
-                // 尝试移动到辅助塔
-                if (this.towers[auxiliaryTower].isEmpty() || 
-                    disc.size < this.towers[auxiliaryTower].getTopDisc().size) {
-                    return { from: i, to: auxiliaryTower };
-                }
-                
-                // 如果无法直接移到辅助塔，寻找任何可行的中转塔
-                for (let j = 0; j < this.towers.length; j++) {
-                    if (j === i || j === this.targetTower) continue;
-                    if (this.towers[j].isEmpty() || disc.size < this.towers[j].getTopDisc().size) {
-                        return { from: i, to: j };
-                    }
-                }
-            }
-        }
-        
-        // 如果没有找到与k相关的移动，尝试任何合法的移动
-        return this.getFallbackMove(gameState);
-    }
-    
-    // Frame-Stewart算法阶段2：将大圆盘移动到目标塔
-    getPhase2Move(gameState, k) {
-        // 寻找最大的尚未移动到目标塔的圆盘
-        let largestDiscTower = -1;
-        let largestDiscSize = 0;
-        
-        for (let i = 0; i < this.towers.length; i++) {
-            if (i === this.targetTower) continue;
-            
-            const tower = this.towers[i];
-            if (!tower.isEmpty()) {
-                // 检查这个塔是否有大圆盘（大于k）
-                for (let j = 0; j < tower.discs.length; j++) {
-                    const discSize = tower.discs[j].size;
-                    if (discSize > k && discSize > largestDiscSize) {
-                        largestDiscSize = discSize;
-                        largestDiscTower = i;
-                    }
-                }
-            }
-        }
-        
-        // 如果找到了大圆盘
-        if (largestDiscTower !== -1) {
-            const tower = this.towers[largestDiscTower];
-            
-            // 如果大圆盘在塔顶，尝试直接移动到目标塔
-            if (tower.getTopDisc().size === largestDiscSize) {
-                if (this.towers[this.targetTower].isEmpty() || 
-                    largestDiscSize < this.towers[this.targetTower].getTopDisc().size) {
-                    return { from: largestDiscTower, to: this.targetTower };
-                }
-            } else {
-                // 大圆盘上有其他圆盘，需要先移走它们
-                const topDisc = tower.getTopDisc();
-                
-                // 寻找可以接收这个顶部圆盘的塔
-                for (let i = 0; i < this.towers.length; i++) {
-                    if (i === largestDiscTower) continue;
-                    
-                    const destTower = this.towers[i];
-                    if (destTower.isEmpty() || topDisc.size < destTower.getTopDisc().size) {
-                        return { from: largestDiscTower, to: i };
-                    }
-                }
-            }
-        }
-        
-        // 如果所有大圆盘已经移到目标塔，进入阶段3
-        return this.getPhase3Move(gameState, -1);
-    }
-    
-    // Frame-Stewart算法阶段3：将辅助塔上的小圆盘移到目标塔
-    getPhase3Move(gameState, auxiliaryTower) {
-        // 如果没有指定辅助塔，找出包含小圆盘的塔
-        if (auxiliaryTower === -1) {
-            for (let i = 0; i < this.towers.length; i++) {
-                if (i !== this.targetTower && !this.towers[i].isEmpty()) {
-                    auxiliaryTower = i;
-                    break;
-                }
-            }
-        }
-        
-        // 如果找到了辅助塔，尝试从中移动圆盘到目标塔
-        if (auxiliaryTower !== -1 && !this.towers[auxiliaryTower].isEmpty()) {
-            const topDisc = this.towers[auxiliaryTower].getTopDisc();
-            
-            // 检查是否可以直接移动到目标塔
-            if (this.towers[this.targetTower].isEmpty() || 
-                topDisc.size < this.towers[this.targetTower].getTopDisc().size) {
-                return { from: auxiliaryTower, to: this.targetTower };
-            }
-            
-            // 否则，寻找任何可行的移动
-            for (let i = 0; i < this.towers.length; i++) {
-                if (i === auxiliaryTower) continue;
-                
-                if (this.towers[i].isEmpty() || 
-                    topDisc.size < this.towers[i].getTopDisc().size) {
-                    return { from: auxiliaryTower, to: i };
-                }
-            }
-        }
-        
-        // 如果找不到从辅助塔移动的路径，使用后备策略
-        return this.getMoveForSmallestDisc(gameState);
-    }
-    
-    // 获取最小圆盘的移动方案
-    getMoveForSmallestDisc(gameState) {
-        if (gameState.smallestDiscLocation < 0) return null;
-        
-        const smallestDiscTower = gameState.smallestDiscLocation;
-        const smallestDiscSize = gameState.smallestDiscSize;
-        
-        // 计算移动方向：多塔汉诺塔的策略是使最小圆盘沿特定方向移动
-        let direction = 1;
-        if (this.discCount % 2 === 0) {
-            // 偶数圆盘：最小圆盘顺时针移动
-            direction = 1;
-        } else {
-            // 圆盘数为奇数：最小圆盘逆时针移动
-            direction = this.towers.length - 1;
-        }
-        
-        // 计算目标塔索引
-        let targetTowerIndex = (smallestDiscTower + direction) % this.towers.length;
-        
-        // 检查目标塔是否可以接收最小圆盘
-        const targetTower = this.towers[targetTowerIndex];
-        if (targetTower.isEmpty() || smallestDiscSize < targetTower.getTopDisc().size) {
-            return { from: smallestDiscTower, to: targetTowerIndex };
-        }
-        
-        // 如果首选方向不可行，尝试反方向或其他可行塔
-        for (let i = 0; i < this.towers.length; i++) {
-            if (i !== smallestDiscTower) {
-                const tower = this.towers[i];
-                if (tower.isEmpty() || smallestDiscSize < tower.getTopDisc().size) {
-                    return { from: smallestDiscTower, to: i };
-                }
-            }
-        }
-        
-        return null;
-    }
-    
-    // 后备移动策略
-    getFallbackMove(gameState) {
-        // 1. 尝试找到任何可以移动到目标塔的圆盘
-        for (let i = 0; i < this.towers.length; i++) {
-            if (i === this.targetTower) continue;
-            if (gameState.towerStates[i].isEmpty) continue;
-            
-            const topDisc = this.towers[i].getTopDisc();
-            const targetTower = this.towers[this.targetTower];
-            
-            if (targetTower.isEmpty() || topDisc.size < targetTower.getTopDisc().size) {
-                return { from: i, to: this.targetTower };
-            }
-        }
-        
-        // 2. 尝试任何合法的移动
-        for (let i = 0; i < this.towers.length; i++) {
-            if (gameState.towerStates[i].isEmpty) continue;
-            
-            const topDisc = this.towers[i].getTopDisc();
-            
-            for (let j = 0; j < this.towers.length; j++) {
-                if (j === i) continue;
-                
-                const destTower = this.towers[j];
-                if (destTower.isEmpty() || topDisc.size < destTower.getTopDisc().size) {
-                    return { from: i, to: j };
-                }
-            }
-        }
-        
-        return null; // 如果没有找到合法移动（不应该发生）
-    }
-    
     // 应用诅咒效果到塔和圆盘
     applyCurses(curses) {
         if (!curses || !Array.isArray(curses) || curses.length === 0) return;
-        
+
         console.log("正在应用诅咒效果:", curses);
-        
+
         // 处理各种诅咒效果
         curses.forEach(curse => {
             switch(curse) {
                 case "迷雾诅咒":
                     // 迷雾诅咒在game.js中的效果系统中处理
                     break;
-                    
+
                 case "迷失诅咒":
                     // 迷失诅咒现在在game.js中的效果系统中处理
                     // 这里不再直接应用晃动效果
                     break;
-                    
+
                 case "迟缓诅咒":
                     // 移动动画变慢
                     document.documentElement.style.setProperty('--disc-move-speed', '1s');
@@ -1629,25 +1399,25 @@ class TowerGame {
                     // 设置迟缓诅咒标志，使动画能真正阻止操作
                     this.hasSlownessCurse = true;
                     break;
-                    
+
                 case "晕眩诅咒":
                     // 圆盘颜色混乱
                     this.applyDizzinessToDiscs();
                     break;
-                    
+
                 default:
                     console.warn("未知的诅咒效果:", curse);
                     break;
             }
         });
     }
-    
+
     // 应用祝福效果到塔和圆盘
     applyBlessings(blessings) {
         if (!blessings || !Array.isArray(blessings) || blessings.length === 0) return;
-        
+
         console.log("正在应用祝福效果:", blessings);
-        
+
         // 处理各种祝福效果
         blessings.forEach(blessing => {
             switch(blessing) {
@@ -1655,29 +1425,29 @@ class TowerGame {
                     // 时间祝福在game.js中的效果系统中处理
                     this.hasBlessingTimeBonus = true;
                     break;
-                    
+
                 case "清晰祝福":
                     // 提示概率增加在game.js中的效果系统中处理
                     this.hintChanceBonus = 0.3;
                     break;
-                    
+
                 case "幸运祝福":
                     // 道具掉落率提高在game.js中的效果系统中处理
                     this.itemChanceBonus = 0.2;
                     break;
-                    
+
                 case "重置祝福":
                     // 添加重置按钮
                     this.addResetButton();
                     break;
-                    
+
                 default:
                     console.warn("未知的祝福效果:", blessing);
                     break;
             }
         });
     }
-    
+
     // 应用迷失诅咒效果 - 塔座微微摇晃
     applyWanderingTowers() {
         for (let i = 0; i < this.towers.length; i++) {
@@ -1685,7 +1455,7 @@ class TowerGame {
             tower.classList.add('wobble-tower');
         }
     }
-    
+
     // 应用晕眩诅咙 - 圆盘颜色混乱
     applyDizzinessToDiscs() {
         this.discs.forEach(disc => {
@@ -1694,36 +1464,36 @@ class TowerGame {
             }
         });
     }
-    
+
     // 为重置祝福添加重置按钮
     addResetButton() {
         // 检查是否已存在重置按钮
         if (document.getElementById('reset-button')) return;
-        
+
         const resetButton = document.createElement('button');
         resetButton.id = 'reset-button';
         resetButton.className = 'game-button blessing-button';
         resetButton.textContent = '重置一次';
         resetButton.title = '重置祝福: 点击可重新布局圆盘(仅一次)';
-        
+
         // 点击时重置塔和圆盘，但不重置关卡
         resetButton.addEventListener('click', () => {
             if (!this.gameStarted || this.levelCompleted) return;
-            
+
             // 保存当前配置
             const currentConfig = { ...this.specialConfig };
             const discCount = this.discCount;
             const movesGoal = this.movesGoal;
             const towerCount = this.towers.length;
-            
+
             // 重置布局
             this.reset();
             this.setLevel(discCount, movesGoal, towerCount, currentConfig);
-            
+
             // 使用后移除按钮
             resetButton.disabled = true;
             resetButton.textContent = '已使用';
-            
+
             // 显示消息
             const message = document.getElementById('message');
             message.textContent = '塔已重置!';
@@ -1733,7 +1503,7 @@ class TowerGame {
                 setTimeout(() => message.textContent = '', 1000);
             }, 2000);
         });
-        
+
         // 添加到游戏控制区域
         const controlsDiv = document.querySelector('.game-controls');
         if (controlsDiv) {
