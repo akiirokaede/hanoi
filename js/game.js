@@ -483,16 +483,44 @@ class HanoiRoguelike {
                     id: `curse-wander-${Date.now()}`,
                     type: 'curse',
                     name: '迷失诅咒',
-                    description: '塔的位置会轻微随机移动',
+                    description: '塔和道具的位置会随机交换',
                     duration: curseDuration,
                     icon: '🌀',
                     onStart: (game) => {
-                        // 应用摇晃效果到所有塔
-                        game.towerGame.applyWanderingTowers();
+                        // 保存原始塔座位置信息
+                        game.wanderCurseState = {
+                            originalPositions: [],
+                            lastSwapTime: Date.now(),
+                            swapInterval: 8000, // 每8秒交换一次位置
+                            originalItemPositions: [],
+                            itemsSwapped: false
+                        };
+                        
+                        // 保存所有塔座的原始位置
+                        game.towerGame.towers.forEach((tower, index) => {
+                            const rect = tower.element.getBoundingClientRect();
+                            const style = window.getComputedStyle(tower.element);
+                            
+                            game.wanderCurseState.originalPositions.push({
+                                index: index,
+                                element: tower.element,
+                                position: {
+                                    left: style.left,
+                                    top: style.top,
+                                    transform: style.transform
+                                }
+                            });
+                        });
+                        
+                        // 立即执行第一次位置交换
+                        this.swapTowerPositions(game);
+                        
+                        // 随机交换道具栏位置
+                        this.swapItemPositions(game);
                         
                         // 显示提示消息
                         const message = document.getElementById('message');
-                        message.textContent = '迷失诅咒生效！塔的位置变得不稳定。';
+                        message.textContent = '迷失诅咒生效！塔和道具的位置发生了交换。';
                         message.classList.add('curse-message');
                         setTimeout(() => {
                             message.classList.remove('curse-message');
@@ -503,15 +531,182 @@ class HanoiRoguelike {
                             }, 1000);
                         }, 3000);
                     },
+                    onTick: (game) => {
+                        // 检查是否需要再次交换位置
+                        const now = Date.now();
+                        if (now - game.wanderCurseState.lastSwapTime >= game.wanderCurseState.swapInterval) {
+                            // 交换塔座位置
+                            this.swapTowerPositions(game);
+                            
+                            // 交换道具位置
+                            this.swapItemPositions(game);
+                            
+                            // 更新上次交换时间
+                            game.wanderCurseState.lastSwapTime = now;
+                            
+                            // 播放交换音效
+                            playSound('move');
+                            
+                            // 简短的信息提示
+                            const message = document.getElementById('message');
+                            message.textContent = '位置又发生了变化！';
+                            message.classList.add('curse-message');
+                            setTimeout(() => {
+                                message.classList.remove('curse-message');
+                                message.textContent = '';
+                            }, 1500);
+                        }
+                    },
                     onEnd: (game) => {
+                        console.log('迷失诅咒结束，开始恢复塔和道具位置到原始状态...');
+                        
+                        // 恢复塔对象在逻辑数组中的顺序
+                        if (game.wanderCurseState && game.wanderCurseState.towerSwaps) {
+                            // 按照逆序恢复所有交换操作，确保正确还原初始状态
+                            for (let i = game.wanderCurseState.towerSwaps.length - 1; i >= 0; i--) {
+                                const swap = game.wanderCurseState.towerSwaps[i];
+                                
+                                // 获取需要恢复的塔索引
+                                const index1 = swap.index1;
+                                const index2 = swap.index2;
+                                
+                                console.log(`正在恢复塔对象交换: 塔${index1+1}和塔${index2+1}`);
+                                
+                                // 交换塔对象在游戏逻辑数组中的位置，撤销之前的交换
+                                const temp = game.towerGame.towers[index1];
+                                game.towerGame.towers[index1] = game.towerGame.towers[index2];
+                                game.towerGame.towers[index2] = temp;
+                            }
+                        }
+                        
+                        // 恢复塔座的DOM元素顺序
+                        const towerContainer = document.getElementById('towers-container');
+                        if (towerContainer && game.wanderCurseState) {
+                            console.log('恢复塔DOM元素的原始顺序');
+                            
+                            // 按照原始顺序重新排列塔DOM元素
+                            game.towerGame.towers.forEach((tower, index) => {
+                                // 添加过渡动画
+                                tower.element.style.transition = 'all 0.8s ease-in-out';
+                                
+                                // 添加到容器末尾会按正确顺序重排
+                                towerContainer.appendChild(tower.element);
+                            });
+                            
+                            // 显示塔恢复位置动画
+                            game.towerGame.towers.forEach(tower => {
+                                const flash = document.createElement('div');
+                                flash.className = 'restore-flash';
+                                flash.style.position = 'absolute';
+                                flash.style.top = '0';
+                                flash.style.left = '0';
+                                flash.style.width = '100%';
+                                flash.style.height = '100%';
+                                flash.style.borderRadius = '10px';
+                                flash.style.pointerEvents = 'none';
+                                flash.style.zIndex = '999';
+                                flash.style.background = 'radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%)';
+                                flash.style.animation = 'restore-flash 1s ease-out';
+                                
+                                tower.element.appendChild(flash);
+                                
+                                // 动画结束后移除
+                                setTimeout(() => {
+                                    if (flash.parentNode) {
+                                        flash.parentNode.removeChild(flash);
+                                    }
+                                }, 1000);
+                            });
+                            
+                            // 添加恢复闪光动画样式
+                            if (!document.getElementById('restore-flash-style')) {
+                                const style = document.createElement('style');
+                                style.id = 'restore-flash-style';
+                                style.textContent = `
+                                    @keyframes restore-flash {
+                                        0% { opacity: 1; }
+                                        100% { opacity: 0; }
+                                    }
+                                `;
+                                document.head.appendChild(style);
+                            }
+                        }
+                        
+                        // 恢复道具栏DOM元素顺序
+                        const itemsContainer = document.getElementById('items-list');
+                        if (itemsContainer && game.wanderCurseState && game.wanderCurseState.itemsSwapped) {
+                            console.log('恢复道具DOM元素的原始顺序');
+                            
+                            // 获取所有道具元素
+                            const itemElements = Array.from(itemsContainer.querySelectorAll('.item'));
+                            
+                            // 保存道具元素的原始顺序（如果没有保存过）
+                            if (!game.wanderCurseState.originalItemOrder) {
+                                game.wanderCurseState.originalItemOrder = [];
+                                itemElements.forEach((item, index) => {
+                                    // 使用data属性保存原始索引
+                                    game.wanderCurseState.originalItemOrder.push({
+                                        id: item.id || `item-${index}`,
+                                        index: index
+                                    });
+                                    
+                                    // 确保每个元素有ID
+                                    if (!item.id) {
+                                        item.id = `item-${index}`;
+                                    }
+                                });
+                            }
+                            
+                            // 创建原始顺序映射
+                            const originalOrderMap = {};
+                            game.wanderCurseState.originalItemOrder.forEach(info => {
+                                originalOrderMap[info.id] = info.index;
+                            });
+                            
+                            // 按原始顺序排序并追加到容器
+                            itemElements
+                                .sort((a, b) => {
+                                    const indexA = originalOrderMap[a.id] || 0;
+                                    const indexB = originalOrderMap[b.id] || 0;
+                                    return indexA - indexB;
+                                })
+                                .forEach(item => {
+                                    // 添加过渡动画
+                                    item.style.transition = 'all 0.5s ease-in-out';
+                                    itemsContainer.appendChild(item);
+                                    
+                                    // 添加恢复动画效果
+                                    item.classList.add('item-restoring');
+                                    setTimeout(() => {
+                                        item.classList.remove('item-restoring');
+                                    }, 800);
+                                });
+                            
+                            // 添加恢复动画样式
+                            if (!document.getElementById('item-restore-style')) {
+                                const style = document.createElement('style');
+                                style.id = 'item-restore-style';
+                                style.textContent = `
+                                    .item-restoring {
+                                        box-shadow: 0 0 15px rgba(0, 255, 255, 0.8) !important;
+                                        transform: scale(1.05) !important;
+                                    }
+                                `;
+                                document.head.appendChild(style);
+                            }
+                        }
+                        
                         // 移除所有塔的摇晃效果
                         document.querySelectorAll('.wobble-tower').forEach(tower => {
                             tower.classList.remove('wobble-tower');
                         });
                         
+                        // 清理状态
+                        delete game.wanderCurseState;
+                        
                         // 显示提示消息
                         const message = document.getElementById('message');
-                        message.textContent = '迷失诅咒已结束！';
+                        message.textContent = '迷失诅咒已结束！塔和道具位置已恢复正常。';
                         message.classList.add('blessing-message');
                         setTimeout(() => {
                             message.classList.remove('blessing-message');
@@ -521,6 +716,8 @@ class HanoiRoguelike {
                                 }
                             }, 1000);
                         }, 2000);
+                        
+                        console.log('塔和道具位置恢复完成');
                     }
                 });
                 break;
@@ -1352,7 +1549,7 @@ class HanoiRoguelike {
             {
                 id: "迷失诅咒",
                 name: "迷失诅咒",
-                description: "塔的位置会轻微随机移动",
+                description: "塔和道具的位置会随机交换",
                 icon: "🌀"
             },
             {
@@ -1768,5 +1965,219 @@ class HanoiRoguelike {
                 }
             }, 500);
         }
+    }
+    
+    // 交换塔座的位置
+    swapTowerPositions(game) {
+        // 确保有保存原始位置信息的状态
+        if (!game.wanderCurseState || !game.wanderCurseState.originalPositions) {
+            console.error('无法交换塔座位置：原始位置信息不存在');
+            return;
+        }
+        
+        console.log('开始交换塔座位置');
+        
+        // 获取塔容器元素
+        const towerContainer = document.getElementById('towers-container');
+        if (!towerContainer) {
+            console.error('找不到塔容器：towers-container');
+            return;
+        }
+        
+        // 随机确定要交换的两座塔（必须确保真正交换了位置）
+        let tower1Index, tower2Index;
+        do {
+            tower1Index = Math.floor(Math.random() * game.towerGame.towers.length);
+            tower2Index = Math.floor(Math.random() * game.towerGame.towers.length);
+        } while (tower1Index === tower2Index);
+        
+        // 获取要交换的两个塔对象及其DOM元素
+        const tower1 = game.towerGame.towers[tower1Index];
+        const tower2 = game.towerGame.towers[tower2Index];
+        const element1 = tower1.element;
+        const element2 = tower2.element;
+        
+        // 获取元素在DOM中的位置
+        const parent = element1.parentNode;
+        const nextSibling = element2.nextSibling;
+        
+        // 实际交换DOM元素（这会使子元素一起移动）
+        parent.insertBefore(element2, element1);
+        if (nextSibling) {
+            parent.insertBefore(element1, nextSibling);
+        } else {
+            parent.appendChild(element1);
+        }
+        
+        // 更新游戏逻辑中的塔对象顺序（这是关键修复点）
+        game.towerGame.towers[tower1Index] = tower2;
+        game.towerGame.towers[tower2Index] = tower1;
+        
+        // 更新塔的引用关系并记录交换信息以便恢复
+        if (!game.wanderCurseState.towerSwaps) {
+            game.wanderCurseState.towerSwaps = [];
+        }
+        
+        // 记录本次交换，用于诅咒结束时恢复
+        game.wanderCurseState.towerSwaps.push({
+            index1: tower1Index,
+            index2: tower2Index
+        });
+        
+        // 应用晃动效果
+        element1.classList.add('wobble-tower');
+        element2.classList.add('wobble-tower');
+        
+        // 为交换添加视觉提示
+        this.addSwapVisualHint([element1, element2]);
+        
+        console.log(`已交换塔${tower1Index+1}和塔${tower2Index+1}的位置`);
+    }
+
+    // 为交换添加视觉提示效果
+    addSwapVisualHint(elements) {
+        elements.forEach(element => {
+            // 添加闪光效果
+            const flash = document.createElement('div');
+            flash.className = 'swap-flash-effect';
+            flash.style.position = 'absolute';
+            flash.style.top = '0';
+            flash.style.left = '0';
+            flash.style.width = '100%';
+            flash.style.height = '100%';
+            flash.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+            flash.style.borderRadius = '10px';
+            flash.style.pointerEvents = 'none';
+            flash.style.zIndex = '999';
+            flash.style.opacity = '0.8';
+            flash.style.animation = 'swap-flash 0.8s ease-out';
+            
+            element.appendChild(flash);
+            
+            // 动画结束后移除闪光元素
+            setTimeout(() => {
+                if (flash.parentNode) {
+                    flash.parentNode.removeChild(flash);
+                }
+            }, 800);
+        });
+        
+        // 添加闪光动画样式
+        if (!document.getElementById('swap-flash-style')) {
+            const style = document.createElement('style');
+            style.id = 'swap-flash-style';
+            style.textContent = `
+                @keyframes swap-flash {
+                    0% { opacity: 0.8; }
+                    100% { opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    // 交换道具栏中道具的位置
+    swapItemPositions(game) {
+        console.log('开始交换道具位置');
+        
+        // 获取道具栏容器
+        const itemsContainer = document.getElementById('items-list');
+        if (!itemsContainer) {
+            console.error('找不到道具容器元素: #items-list');
+            return;
+        }
+        
+        // 获取道具元素
+        const itemElements = Array.from(itemsContainer.querySelectorAll('.item'));
+        if (itemElements.length <= 1) {
+            console.log('道具数量不足，不执行交换');
+            return; // 只有0或1个道具时不需要交换
+        }
+        
+        console.log(`找到${itemElements.length}个道具元素`);
+        
+        // 第一次交换前，保存所有道具的原始顺序
+        if (!game.wanderCurseState.originalItemOrder) {
+            game.wanderCurseState.originalItemOrder = [];
+            itemElements.forEach((item, index) => {
+                // 确保每个元素都有唯一ID
+                if (!item.id) {
+                    item.id = `item-${index}-${Date.now()}`;
+                }
+                
+                // 保存原始顺序信息
+                game.wanderCurseState.originalItemOrder.push({
+                    id: item.id,
+                    index: index
+                });
+                
+                console.log(`保存道具 ${item.id} 的原始位置: ${index}`);
+            });
+        }
+        
+        // 随机选择两个道具交换（确保真正的交换）
+        let item1Index, item2Index;
+        do {
+            item1Index = Math.floor(Math.random() * itemElements.length);
+            item2Index = Math.floor(Math.random() * itemElements.length);
+        } while (item1Index === item2Index);
+        
+        // 获取要交换的两个DOM元素
+        const item1 = itemElements[item1Index];
+        const item2 = itemElements[item2Index];
+        
+        // 获取元素在DOM中的位置
+        const parent = item1.parentNode;
+        const nextSibling = item2.nextSibling;
+        
+        // 实际交换DOM元素位置
+        parent.insertBefore(item2, item1);
+        if (nextSibling) {
+            parent.insertBefore(item1, nextSibling);
+        } else {
+            parent.appendChild(item1);
+        }
+        
+        // 添加闪烁效果
+        item1.classList.add('item-swapping');
+        item2.classList.add('item-swapping');
+        
+        // 延时移除闪烁效果
+        setTimeout(() => {
+            item1.classList.remove('item-swapping');
+            item2.classList.remove('item-swapping');
+        }, 800);
+        
+        // 添加闪烁动画样式
+        if (!document.getElementById('item-swap-style')) {
+            const style = document.createElement('style');
+            style.id = 'item-swap-style';
+            style.textContent = `
+                .item-swapping {
+                    box-shadow: 0 0 15px rgba(255, 165, 0, 0.8) !important;
+                    transform: scale(1.1) !important;
+                    z-index: 10 !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // 显示提示消息
+        const message = document.getElementById('message');
+        if (message) {
+            message.textContent = '道具位置发生了变化！';
+            message.classList.add('curse-message');
+            setTimeout(() => {
+                message.classList.remove('curse-message');
+                if (message.textContent === '道具位置发生了变化！') {
+                    message.textContent = '';
+                }
+            }, 2000);
+        }
+        
+        console.log(`已交换道具${item1Index+1}和道具${item2Index+1}的位置`);
+        
+        // 标记道具已被交换
+        game.wanderCurseState.itemsSwapped = true;
     }
 }

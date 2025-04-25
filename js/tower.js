@@ -1569,8 +1569,8 @@ class TowerGame {
                     break;
                     
                 case "迷失诅咒":
-                    // 塔的位置会轻微随机移动
-                    this.applyWanderingTowers();
+                    // 迷失诅咒现在在game.js中的效果系统中处理
+                    // 这里不再直接应用晃动效果
                     break;
                     
                 case "迟缓诅咒":
