@@ -588,7 +588,7 @@ class LevelSystem {
             if (this.seededRandom() < blessingChance) {
                 const possibleBlessings = [
                     "时间祝福",    // 每次移动增加1秒时间
-                    "清晰祝福",    // 显示下一步最优解的提示概率增加
+                    "智慧祝福",    // 每5秒自动显示一次提示
                     "幸运祝福",    // 道具掉落率提高
                     "重置祝福"     // 可以重置一次当前布局
                 ];

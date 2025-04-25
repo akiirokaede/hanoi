@@ -310,28 +310,56 @@ class HanoiRoguelike {
                 });
                 break;
                 
-            case "清晰祝福":
+            case "智慧祝福":
                 this.effectsSystem.addEffect({
-                    id: `blessing-clarity-${Date.now()}`,
+                    id: `blessing-wisdom-${Date.now()}`,
                     type: 'blessing',
-                    name: '清晰祝福',
-                    description: '提示概率增加30%',
+                    name: '智慧祝福',
+                    description: '每5秒自动显示一次提示',
                     duration: blessingDuration,
-                    icon: '👁️',
+                    icon: '🧠',
+                    intervalId: null,
                     onStart: (game) => {
-                        game.towerGame.hintChanceBonus = 0.3;
+                        // 创建一个每5秒自动触发提示的定时器
+                        this.intervalId = setInterval(() => {
+                            // 只有在游戏进行中且未暂停时才显示提示
+                            if (game.isPlaying && !game.isPaused && !game.levelCompleted) {
+                                game.towerGame.showHint();
+                            }
+                        }, 5000);
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '智慧祝福生效！每5秒将自动显示提示。';
+                        message.classList.add('blessing-message');
+                        setTimeout(() => {
+                            message.classList.remove('blessing-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('智慧祝福')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 3000);
                     },
                     onEnd: (game) => {
-                        game.towerGame.hintChanceBonus = 0;
-                    },
-                    onTick: (game) => {
-                        if (Math.random() < 0.1) {
-                            game.towerGame.discs.forEach(disc => {
-                                if (disc.isInvisible) {
-                                    disc.temporaryReveal();
-                                }
-                            });
+                        // 清除定时器
+                        if (this.intervalId) {
+                            clearInterval(this.intervalId);
+                            this.intervalId = null;
                         }
+                        
+                        // 显示提示消息
+                        const message = document.getElementById('message');
+                        message.textContent = '智慧祝福已结束！';
+                        message.classList.add('blessing-message');
+                        setTimeout(() => {
+                            message.classList.remove('blessing-message');
+                            setTimeout(() => {
+                                if (message.textContent.includes('已结束')) {
+                                    message.textContent = '';
+                                }
+                            }, 1000);
+                        }, 2000);
                     }
                 });
                 break;
@@ -1519,10 +1547,10 @@ class HanoiRoguelike {
                 icon: "⏱️"
             },
             {
-                id: "清晰祝福",
-                name: "清晰祝福",
-                description: "提示概率增加30%",
-                icon: "👁️"
+                id: "智慧祝福",
+                name: "智慧祝福",
+                description: "每5秒自动显示一次提示",
+                icon: "🧠"
             },
             {
                 id: "幸运祝福",
@@ -1903,8 +1931,7 @@ class HanoiRoguelike {
         style.textContent = `
             @keyframes dizzy-background {
                 0% { background-position: 0% 0%; filter: hue-rotate(0deg); }
-                25% { background-position: 100% 0%; filter: hue-rotate(90deg); }
-                50% { background-position: 100% 100%; filter: hue-rotate(180deg); }
+                25% { background-position: 100% 0%; filter: hue-rotate(90deg);                50% { background-position: 100% 100%; filter: hue-rotate(180deg); }
                 75% { background-position: 0% 100%; filter: hue-rotate(270deg); }
                 100% { background-position: 0% 0%; filter: hue-rotate(360deg); }
             }
