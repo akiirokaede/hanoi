@@ -129,13 +129,13 @@ class Tower {
     }
 
     // 添加提示动画
-    addHint() {
-        this.element.classList.add('hint');
+    addHint(type = 'source') {
+        this.element.classList.add('hint', type);
     }
 
     // 移除提示动画
     removeHint() {
-        this.element.classList.remove('hint');
+        this.element.classList.remove('hint', 'source', 'target');
     }
 }
 
@@ -530,48 +530,57 @@ class TowerGame {
     showHint() {
         if (this.availableHints <= 0) {
             const message = document.getElementById('message');
-            message.textContent = '没有可用的提示了!';
-            message.classList.add('error-message');
+            message.textContent = '没有可用的提示了';
+            message.classList.add('hint-message');
             setTimeout(() => {
-                message.classList.remove('error-message');
-                setTimeout(() => message.textContent = '', 1000);
+                message.classList.remove('hint-message');
+                message.textContent = '';
             }, 2000);
             return;
         }
+
+        // 清除之前的提示
+        this.towers.forEach(tower => tower.removeHint());
         
-        this.availableHints--;
-        
-        // 计算最优解的下一步移动
-        const hint = this.calculateOptimalNextMove();
-        if (hint) {
-            const {fromTower, toTower} = hint;
-            
-            // 高亮显示提示的塔座
-            this.towers[fromTower].highlightTower();
-            this.towers[toTower].highlightTower('target');
-            
+        // 获取下一个最优移动
+        const hintMove = this.getNextOptimalMove();
+        if (hintMove) {
+            // 添加新的提示
+            this.towers[hintMove.from].addHint('source');
+            this.towers[hintMove.to].addHint('target');
+
+            // 更新提示次数
+            this.availableHints--;
             const message = document.getElementById('message');
-            message.textContent = `提示: 将圆盘从塔${fromTower + 1}移动到塔${toTower + 1}`;
+            message.textContent = `将圆盘从第${hintMove.from + 1}个塔移动到第${hintMove.to + 1}个塔`;
             message.classList.add('hint-message');
-            
+
             // 更新提示按钮文本
             const hintButton = document.getElementById('hint-button');
             if (hintButton) {
                 hintButton.textContent = `提示 (${this.availableHints})`;
+                if (this.availableHints <= 0) {
+                    hintButton.disabled = true;
+                }
             }
-            
-            // 3秒后取消高亮和消息
-            setTimeout(() => {
-                this.towers[fromTower].unhighlightTower();
-                this.towers[toTower].unhighlightTower();
-                message.classList.remove('hint-message');
-                setTimeout(() => {
-                    if (message.textContent.includes('提示:')) {
-                        message.textContent = '';
-                    }
-                }, 1000);
-            }, 3000);
+
+            // 播放提示音效
+            playHintSound();
+        } else {
+            const message = document.getElementById('message');
+            message.textContent = '无法提供提示';
+            message.classList.add('hint-message');
         }
+
+        // 3秒后清除提示消息
+        setTimeout(() => {
+            const message = document.getElementById('message');
+            message.classList.remove('hint-message');
+            message.textContent = '';
+            
+            // 清除高亮效果
+            this.towers.forEach(tower => tower.removeHint());
+        }, 3000);
     }
     
     // 计算最优解的下一步移动
@@ -1010,19 +1019,59 @@ class TowerGame {
     
     // 自动求解 (供洞察之眼道具使用)
     showHint() {
+        if (this.availableHints <= 0) {
+            const message = document.getElementById('message');
+            message.textContent = '没有可用的提示了';
+            message.classList.add('hint-message');
+            setTimeout(() => {
+                message.classList.remove('hint-message');
+                message.textContent = '';
+            }, 2000);
+            return;
+        }
+
+        // 清除之前的提示
+        this.towers.forEach(tower => tower.removeHint());
+        
+        // 获取下一个最优移动
         const hintMove = this.getNextOptimalMove();
         if (hintMove) {
-            this.towers[hintMove.from].addHint();
-            setTimeout(() => {
-                this.towers[hintMove.from].removeHint();
-                if (this.gameStarted && !this.levelCompleted) {
-                    this.towers[hintMove.to].addHint();
-                    setTimeout(() => {
-                        this.towers[hintMove.to].removeHint();
-                    }, 1000);
+            // 添加新的提示
+            this.towers[hintMove.from].addHint('source');
+            this.towers[hintMove.to].addHint('target');
+
+            // 更新提示次数
+            this.availableHints--;
+            const message = document.getElementById('message');
+            message.textContent = `将圆盘从第${hintMove.from + 1}个塔移动到第${hintMove.to + 1}个塔`;
+            message.classList.add('hint-message');
+
+            // 更新提示按钮文本
+            const hintButton = document.getElementById('hint-button');
+            if (hintButton) {
+                hintButton.textContent = `提示 (${this.availableHints})`;
+                if (this.availableHints <= 0) {
+                    hintButton.disabled = true;
                 }
-            }, 1000);
+            }
+
+            // 播放提示音效
+            playHintSound();
+        } else {
+            const message = document.getElementById('message');
+            message.textContent = '无法提供提示';
+            message.classList.add('hint-message');
         }
+
+        // 3秒后清除提示消息
+        setTimeout(() => {
+            const message = document.getElementById('message');
+            message.classList.remove('hint-message');
+            message.textContent = '';
+            
+            // 清除高亮效果
+            this.towers.forEach(tower => tower.removeHint());
+        }, 3000);
     }
     
     // 计算最优下一步移动

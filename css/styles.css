@@ -672,7 +672,77 @@ body {
 }
 
 .tower.hint {
-    animation: float 1s infinite;
+    position: relative;
+}
+
+.tower.hint::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 10px;
+    pointer-events: none;
+    animation: hint-pulse 1.5s infinite;
+}
+
+.tower.hint.source::after {
+    border: 3px solid #2ecc71;
+    box-shadow: 0 0 15px #2ecc71;
+}
+
+.tower.hint.target::after {
+    border: 3px solid #3498db;
+    box-shadow: 0 0 15px #3498db;
+}
+
+@keyframes hint-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.hint-message {
+    color: #2ecc71;
+    font-weight: bold;
+    animation: hint-message-pulse 2s infinite;
+}
+
+@keyframes hint-message-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+#hint-button {
+    background-color: #2ecc71;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+#hint-button:hover {
+    background-color: #27ae60;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+#hint-button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#hint-button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 /* 特殊事件消息样式 - 增强版 */

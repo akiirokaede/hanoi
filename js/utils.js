@@ -297,6 +297,22 @@ function playSpecialEventSound(eventType) {
     }
 }
 
+// 播放提示音效
+function playHintSound() {
+    playEnhancedSound('hint', {
+        volume: 0.6,
+        playbackRate: 1.2
+    });
+}
+
+// 播放错误音效
+function playErrorSound() {
+    playEnhancedSound('error', {
+        volume: 0.5,
+        playbackRate: 0.9
+    });
+}
+
 /**
  * 祝福和诅咒效果管理系统
  */
